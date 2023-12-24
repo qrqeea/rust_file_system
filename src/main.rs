@@ -14,6 +14,6 @@ fn main() {
         ]
     };
 
-    a.print_tree()
+    a.list_all_files(String::from(""));
 
 }
