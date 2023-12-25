@@ -1,19 +1,18 @@
 mod definitions;
 
-use definitions::FileNode;
+use definitions::*;
 
 fn main() {
 
-    let a = FileNode::Directory {
-        name: String::from("/"), 
-        files: vec![
-            FileNode::File { name: String::from("target") },
-            FileNode::Directory { 
-                name: String::from("src"), 
-                files: vec![FileNode::File { name: String::from("main.rs") }]}
-        ]
-    };
+    let mut root = generate_diorectory("".to_string(), "".to_string());
+    root.add_file(generate_file("Cargo.lock".to_string(), "111".to_string(), "".to_string()));
+    root.add_file(generate_file("Cargo.toml".to_string(), "222".to_string(), "".to_string()));
+    root.add_file(generate_diorectory("target".to_string(), "".to_string()));
+    let src = root.add_file(generate_diorectory("src".to_string(), "".to_string())).unwrap();
 
-    a.list_all_files(String::from(""));
+    src.add_file(generate_file("main.rs".to_string(), "hello world".to_string(), "/src".to_string()));
+    
+    root.list_all_files("".to_string());
+    // src.list_all_files("/".to_string());
 
 }
