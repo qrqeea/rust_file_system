@@ -1,5 +1,5 @@
 mod definitions;
-mod disk;
+mod disk_manager;
 
 use definitions::*;
 
@@ -9,7 +9,6 @@ fn main() {
     // let mut cur_node = &mut root;   
     root.list_all_files("".to_string(), true);
     
-
 }
 
 
