@@ -14,7 +14,7 @@ pub enum FileNode {
 }
 
 struct FileBaseInfo {
-    name: String,
+    pub name: String,
     create_time: DateTime<Local>,
     modify_time: DateTime<Local>,
     full_path: String,
@@ -54,13 +54,13 @@ impl FileNode {
             FileNode::Directory { files, .. } => {
                 files.push(file);
                 return Some(files.last_mut().unwrap());
-            } 
+            }
         }
     }
 
     // 列出当前节点下的所有文件
-    pub fn list_all_files(&self, prefix: String) {
-        if prefix == "" {    // 根目录
+    pub fn list_all_files(&self, prefix: String, is_root: bool) {
+        if is_root {
             println!("path                type                size                todo");
             println!("----------------------------------------------------------------");
         }
@@ -75,9 +75,9 @@ impl FileNode {
                 println!("{:<20}directory", full_path);
                 for file in files {
                     if prefix == "" {    // 根目录
-                        file.list_all_files(String::from("/"));
+                        file.list_all_files(String::from("/"), false);
                     } else {
-                        file.list_all_files(format!("{}{}/", prefix, base_info.name));
+                        file.list_all_files(format!("{}{}/", prefix, base_info.name), false);
                     }
                 }
             }
