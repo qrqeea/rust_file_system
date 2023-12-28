@@ -1,20 +1,17 @@
 mod definitions;
+mod disk;
 
 use definitions::*;
 
 fn main() {
 
     let mut root = generate_test_tree();
-    let mut cur_node = &mut root;   
+    // let mut cur_node = &mut root;   
+    root.list_all_files("".to_string(), true);
     
 
 }
 
-// 切换目录
-fn change_directory() {
-    
-
-}
 
 fn generate_test_tree() -> FileNode {
     let mut root = generate_diorectory("".to_string(), "".to_string());
