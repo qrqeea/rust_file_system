@@ -435,6 +435,13 @@ impl DiskManager {
             .remove(self.cur_dir.get_index_by_name(name).unwrap());
         des_dir.files.push(fcb);
     }
+
+    pub fn copy_file_by_name(&mut self, raw_name: &str, new_name: &str) -> bool {
+        let (_, fcb) = self.cur_dir.get_fcb_by_name(raw_name).unwrap();
+        let data = self.get_file_by_fcb(fcb);
+        self.create_file_with_data(new_name, &data);
+        true
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -485,7 +492,7 @@ impl Directory {
         res
     }
 
-    // 通过文件名获取文件在files中的索引和文件FCB
+    // 通过文件名获取文件在files中的索引
     fn get_index_by_name(&self, name: &str) -> Option<usize> {
         let mut res = None;
         for i in 0..self.files.len() {

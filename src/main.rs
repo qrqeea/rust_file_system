@@ -1,4 +1,4 @@
-// #![allow(dead_code)]
+#![allow(dead_code)]
 
 mod disk_manager;
 use std::fs;
@@ -153,6 +153,14 @@ fn ui_loop(virtual_disk: &mut DiskManager) {
             virtual_disk
                 .delete_file_by_name(name)
                 .expect("[ERROR]\tDELETE FILE FAILED!");
+        } else if let Some(command_line) = command_line.strip_prefix("cp ") {
+            // 复制文件
+            let name: Vec<&str> = command_line.trim().split(" ").collect();
+            if name.len() != 2 {
+                println!("Parameter Error!");
+                continue;
+            }
+            virtual_disk.copy_file_by_name(name[0], name[1]);
         } else {
             println!("Unknown Command.");
         }
