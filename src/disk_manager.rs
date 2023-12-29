@@ -164,12 +164,14 @@ impl DiskManager {
     // 计算写入文件需要的块数量——针对EoF
     // 返回（`bool`: 是否需要插入EoF，`usize`: 需要的总块数）
     fn calc_clusters_needed_with_eof(length: usize) -> (bool, usize) {
-        // 判断需要写入的总块数
-        let mut clusters_needed: f32 = length as f32 / BLOCK_COUNT as f32;
-        // 判断cluster是否是整数。如果是，就不写入结束标志。
+        // 需要的块数
+        let mut clusters_needed: f32 = length as f32 / BLOCK_SIZE as f32;
+
+        // 需要的块数为整数不需要写入结束标志，否则需要写入结束标志
         let insert_eof = if (clusters_needed - clusters_needed as usize as f32) < 0.0000000001 {
             false
         } else {
+            // 向上取整
             clusters_needed = clusters_needed.ceil();
             true
         };
@@ -178,7 +180,7 @@ impl DiskManager {
         (insert_eof, clusters_needed)
     }
 
-    /// 提供想要写入的数据，返回数据的开始块块号，可在FAT中查找
+    // 写入的数据到硬盘，返回first_cluster
     pub fn write_data_to_disk(&mut self, data: &[u8]) -> usize {
         pinfo();
         println!("Writing data to disk...");
@@ -187,8 +189,7 @@ impl DiskManager {
 
         let clusters = self.allocate_free_space_on_fat(clusters_needed).unwrap();
 
-        self.disk
-            .write_data_by_clusters_with_eof(data, clusters.as_slice(), insert_eof);
+        self.disk.write_data_by_clusters_with_eof(data, clusters.as_slice(), insert_eof);
 
         pdebug();
         println!("Writing finished. Returned clusters: {:?}", clusters);
@@ -196,7 +197,7 @@ impl DiskManager {
         clusters[0]
     }
 
-    /// 提供目录名，在当前目录中新建目录，同时写入磁盘。
+    // 在当前目录中新建目录，并且写入磁盘
     pub fn new_directory_to_disk(&mut self, name: &str) -> Result<(), &'static str> {
         // 新文件夹写入磁盘块
         pinfo();
@@ -208,16 +209,16 @@ impl DiskManager {
             return Err("[ERROR]\tThere's already a directory with a same name!");
         }
 
-        let mut new_directory = Directory::new(name);
-        // 加入“..”
+        // Directory对象是目录的数据，每个数据项是一个Fcb
+        let mut new_directory: Directory = Directory::new(name);
+        // 添加父目录，用于cd切换到父目录
         new_directory.files.push(Fcb {
             name: String::from(".."),
             file_type: FileType::Directory,
             first_cluster: self.cur_dir.files[1].first_cluster,
             length: 0,
         });
-        // 加入“.”
-        // TODO: 多线程不安全
+        // TODO: 为什么要加入自己？
         new_directory.files.push(Fcb {
             name: String::from("."),
             file_type: FileType::Directory,
@@ -225,15 +226,17 @@ impl DiskManager {
             length: 0,
         });
 
-        let bin_dir = bincode::serialize(&new_directory).unwrap();
+        let bin_dir: Vec<u8> = bincode::serialize(&new_directory).unwrap();
 
         pdebug();
         println!("Dir bytes: {:?}", bin_dir);
+        // 将新建的目录写入到硬盘
         let first_block = self.write_data_to_disk(&bin_dir);
 
         pdebug();
         println!("Trying to add dir to current dir...");
-        // 在文件夹中添加新文件夹
+
+        // 在当前目录添加新目录
         self.cur_dir.files.push(Fcb {
             name: String::from(name),
             file_type: FileType::Directory,
@@ -243,6 +246,9 @@ impl DiskManager {
         pdebug();
         println!("Created dir {}.", name);
 
+        // 这里并没有立即更新当前目录到硬盘，而是等切换目录或退出时再保存
+        // 因为可能创建多个目录，如果每创建一个就更新一次效率会比较低
+        // 但也会有新的问题，比如没有正常退出（如断电）会导致数据丢失
         Ok(())
     }
 
