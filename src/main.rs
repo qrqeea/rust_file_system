@@ -169,12 +169,12 @@ fn ui_loop(virtual_disk: &mut DiskManager) {
                 continue;
             }
             if name[1].contains("/") {
-                // 移动
+                // 移动，path暂时只支持相对路径
+                virtual_disk.movie_file_by_name(name[0], name[1]);
             } else {
                 // 重命名
                 virtual_disk.rename_file_by_name(name[0], name[1]);
             }
-            
         } else {
             println!("Unknown Command.");
         }

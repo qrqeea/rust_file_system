@@ -406,6 +406,36 @@ impl DiskManager {
         self.cur_dir.files[index] = new_fcb;
     }
 
+    // 移动文件
+    pub fn movie_file_by_name(&mut self, file_name: &str, path: &str) {
+        let index = self.cur_dir.get_index_by_name(file_name).unwrap();
+        // 从当前目录中删除fcb
+        let fcb = self.cur_dir.files.remove(index);
+        self.save_directory_to_disk(&self.cur_dir.clone());
+        
+        let dir_names: Vec<&str> = path.split("/").collect();
+        let mut cur_directory = self.cur_dir.clone();
+        for dir_name in dir_names {
+            if dir_name == "" {
+                continue;
+            }
+            let (_, dir_fcb) = cur_directory.get_fcb_by_name(dir_name).unwrap();
+            cur_directory = self.get_directory_by_fcb(dir_fcb);
+        }
+        cur_directory.files.push(fcb);
+        let data = bincode::serialize(&cur_directory).unwrap();
+        let (insert_eof, clusters_needed) = DiskManager::calc_clusters_needed_with_eof(data.len());
+        // 删除原先的块
+        self.delete_space_on_fat(cur_directory.files[1].first_cluster).unwrap();
+        // 分配新的块
+        let reallocated_clusters = self.allocate_free_space_on_fat(clusters_needed).unwrap();
+        self.disk.write_data_by_clusters_with_eof(
+            data.as_slice(),
+            reallocated_clusters.as_slice(),
+            insert_eof,
+        );
+    }
+
     // 获取部分磁盘信息
     // 返回 磁盘总大小/Byte，已分配块数量、未分配块的数量
     pub fn get_disk_info(&self) -> (usize, usize, usize) {
