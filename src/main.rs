@@ -161,6 +161,20 @@ fn ui_loop(virtual_disk: &mut DiskManager) {
                 continue;
             }
             virtual_disk.copy_file_by_name(name[0], name[1]);
+        } else if let Some(command_line) = command_line.strip_prefix("mv ") {
+            // 重命名/移动文件
+            let name: Vec<&str> = command_line.trim().split(" ").collect();
+            if name.len() != 2 {
+                println!("Parameter Error!");
+                continue;
+            }
+            if name[1].contains("/") {
+                // 移动
+            } else {
+                // 重命名
+                virtual_disk.rename_file_by_name(name[0], name[1]);
+            }
+            
         } else {
             println!("Unknown Command.");
         }

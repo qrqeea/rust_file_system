@@ -396,7 +396,6 @@ impl DiskManager {
     }
 
     // 文件改名
-    // TODO，没用上，可以作为新功能
     // 目录改名要复杂一些，这里没实现
     pub fn rename_file_by_name(&mut self, old: &str, new: &str) {
         let (index, fcb) = self.cur_dir.get_fcb_by_name(old).unwrap();
@@ -436,6 +435,7 @@ impl DiskManager {
         des_dir.files.push(fcb);
     }
 
+    // 复制文件
     pub fn copy_file_by_name(&mut self, raw_name: &str, new_name: &str) -> bool {
         let (_, fcb) = self.cur_dir.get_fcb_by_name(raw_name).unwrap();
         let data = self.get_file_by_fcb(fcb);
