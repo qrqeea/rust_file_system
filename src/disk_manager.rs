@@ -148,7 +148,7 @@ impl DiskManager {
         }
     }
 
-    /// 删除已经被分配的块（置空），返回已经被删除的块号数组。
+    /// 释放从first_cluster开始已经被分配的块
     fn delete_space_on_fat(&mut self, first_cluster: usize) -> Result<Vec<usize>, String> {
         pinfo();
         println!("Deleting Fat space...");
@@ -161,22 +161,8 @@ impl DiskManager {
         clusters_result
     }
 
-    /// 重新分配已经被分配的块，按需要的块数量分配，原块将被置空。
-    fn reallocate_free_space_on_fat(
-        &mut self,
-        first_cluster: usize,
-        clusters_needed: usize,
-    ) -> Vec<usize> {
-        pinfo();
-        println!("Realocating Fat space...");
-        // 删除原先的块
-        self.delete_space_on_fat(first_cluster).unwrap();
-        // 分配新的块 - 多线程下第一块可能不同，多线程不安全
-        self.allocate_free_space_on_fat(clusters_needed).unwrap()
-    }
-
-    /// 计算写入文件需要的块数量——针对EoF
-    /// 返回（`bool`: 是否需要插入EoF，`usize`: 需要的总块数）
+    // 计算写入文件需要的块数量——针对EoF
+    // 返回（`bool`: 是否需要插入EoF，`usize`: 需要的总块数）
     fn calc_clusters_needed_with_eof(length: usize) -> (bool, usize) {
         // 判断需要写入的总块数
         let mut clusters_needed: f32 = length as f32 / BLOCK_COUNT as f32;
@@ -397,8 +383,10 @@ impl DiskManager {
         println!("Trying to saving dir...");
         let data = bincode::serialize(dir).unwrap();
         let (insert_eof, clusters_needed) = DiskManager::calc_clusters_needed_with_eof(data.len());
-        let reallocated_clusters =
-            self.reallocate_free_space_on_fat(self.cur_dir.files[1].first_cluster, clusters_needed);
+        // 删除原先的块
+        self.delete_space_on_fat(self.cur_dir.files[1].first_cluster).unwrap();
+        // 分配新的块
+        let reallocated_clusters = self.allocate_free_space_on_fat(clusters_needed).unwrap();
         self.disk.write_data_by_clusters_with_eof(
             data.as_slice(),
             reallocated_clusters.as_slice(),
