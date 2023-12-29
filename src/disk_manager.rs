@@ -252,7 +252,7 @@ impl DiskManager {
         Ok(())
     }
 
-    // 提供块号，读出所有数据。
+    // 根据首块块号，读出所有数据
     fn get_data_by_first_cluster(&self, first_cluster: usize) -> Vec<u8> {
         pdebug();
         println!("Getting data from disk by clusters...");
@@ -268,7 +268,7 @@ impl DiskManager {
         data
     }
 
-    // 通过FCB块找到目录项
+    // 通过FCB块找到目录数据
     fn get_directory_by_fcb(&self, dir_fcb: &Fcb) -> Directory {
         pinfo();
         println!("Getting dir by FCB...\n\tFCB: {:?}", dir_fcb);
@@ -286,7 +286,7 @@ impl DiskManager {
         }
     }
 
-    // 通过FCB块找到文件
+    // 通过FCB块找到文件数据
     fn get_file_by_fcb(&self, fcb: &Fcb) -> Vec<u8> {
         pinfo();
         println!("Getting file data by FCB...\n\tFCB: {:?}", fcb);
@@ -296,15 +296,9 @@ impl DiskManager {
         }
     }
 
-    /// 通过FCB块删除文件
-    fn delete_file_by_fcb(&mut self, fcb: &Fcb) -> Result<(), String> {
-        self.delete_file_by_fcb_with_index(
-            fcb,
-            Some(self.cur_dir.get_index_by_name(fcb.name.as_str()).unwrap()),
-        )
-    }
 
-    /// 通过FCB块删除文件，参数中含有FCB块在dir中的序号。
+    // 删除文件
+    // 首先要清除文件分配表中占用的块，数据区可以不清零，然后还要从父目录中删除对应的FCB
     fn delete_file_by_fcb_with_index(
         &mut self,
         fcb: &Fcb,
