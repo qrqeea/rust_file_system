@@ -1,4 +1,4 @@
-mod disk;
+pub mod disk;
 use disk::{Disk, FatItem, BLOCK_COUNT, BLOCK_SIZE};
 
 use ansi_rgb::Foreground;
@@ -297,37 +297,7 @@ impl DiskManager {
     }
 
 
-    // 删除文件
-    // 首先要清除文件分配表中占用的块，数据区可以不清零，然后还要从父目录中删除对应的FCB
-    fn delete_file_by_fcb_with_index(
-        &mut self,
-        fcb: &Fcb,
-        index: Option<usize>,
-    ) -> Result<(), String> {
-        if let FileType::Directory = fcb.file_type {
-            let dir = self.get_directory_by_fcb(fcb);
-            if dir.files.len() > 2 {
-                return Err(String::from("[ERROR]\tThe Directory is not empty!"));
-            }
-        }
-        pdebug();
-        println!(
-            "Trying to set all NotUsed clutster of file '{}' on FAT...",
-            fcb.name
-        );
-        // 直接返回删除文件的结果
-        if let Err(err) = self.delete_space_on_fat(fcb.first_cluster) {
-            return Err(err);
-        }
-        // 若给定index非None，则删除目录下的FCB条目
-        if let Some(i) = index {
-            self.cur_dir.files.remove(i);
-        }
-
-        Ok(())
-    }
-
-    // 在当前文件夹创建新文件并写入
+    // 在当前目录新建文件并写入数据
     pub fn create_file_with_data(&mut self, name: &str, data: &[u8]) {
         pinfo();
         println!("Creating new file in current dir...");
@@ -365,20 +335,49 @@ impl DiskManager {
         res
     }
 
-    // 通过文件夹名设置当前文件夹
-    pub fn set_current_directory(&mut self, name: &str) {
-        // 保存当前文件夹
+    // 首先要清除文件分配表中占用的块，数据区可以不清零，然后还要从父目录中删除对应的FCB
+    fn delete_file_by_fcb_with_index(
+        &mut self,
+        fcb: &Fcb,
+        index: Option<usize>,
+    ) -> Result<(), String> {
+        if let FileType::Directory = fcb.file_type {
+            let dir = self.get_directory_by_fcb(fcb);
+            if dir.files.len() > 2 {
+                return Err(String::from("[ERROR]\tThe Directory is not empty!"));
+            }
+        }
+        pdebug();
+        println!(
+            "Trying to set all NotUsed clutster of file '{}' on FAT...",
+            fcb.name
+        );
+        // 直接返回删除文件的结果
+        if let Err(err) = self.delete_space_on_fat(fcb.first_cluster) {
+            return Err(err);
+        }
+        // 若给定index非None，则删除目录下的FCB条目
+        if let Some(i) = index {
+            self.cur_dir.files.remove(i);
+        }
+
+        Ok(())
+    }
+
+    // 切换到指定目录
+    pub fn change_current_directory(&mut self, name: &str) {
+        // 先保存当前目录数据到硬盘
         let dir_cloned = self.cur_dir.clone();
         self.save_directory_to_disk(&dir_cloned);
-        // 通过名字获取下一个文件夹
+        // 通过name获取要切换到的目录fcb
         let (_index, dir_fcb) = self.cur_dir.get_fcb_by_name(name).unwrap();
 
         let dir = self.get_directory_by_fcb(dir_fcb);
         self.cur_dir = dir;
     }
 
-    // 保存文件夹到磁盘，返回第一个块号——更改被保存，原目录文件将在磁盘上被覆盖
-    pub fn save_directory_to_disk(&mut self, dir: &Directory) -> usize {
+    // 保存当前目录数据到硬盘，返回第一个块号——更改被保存，原目录文件将在磁盘上被覆盖
+    fn save_directory_to_disk(&mut self, dir: &Directory) -> usize {
         pdebug();
         println!("Trying to saving dir...");
         let data = bincode::serialize(dir).unwrap();
@@ -396,7 +395,9 @@ impl DiskManager {
         reallocated_clusters[0]
     }
 
-    // 文件改名，没啥好说的。
+    // 文件改名
+    // TODO，没用上，可以作为新功能
+    // 目录改名要复杂一些，这里没实现
     pub fn rename_file_by_name(&mut self, old: &str, new: &str) {
         let (index, fcb) = self.cur_dir.get_fcb_by_name(old).unwrap();
         let new_fcb = Fcb {
@@ -426,6 +427,7 @@ impl DiskManager {
     }
 
     // FCB的移动
+    // 这个也没用上
     pub fn move_fcb_between_dirs_by_name(&mut self, name: &str, des_dir: &mut Directory) {
         let fcb = self
             .cur_dir
