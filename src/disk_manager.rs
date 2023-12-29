@@ -59,7 +59,8 @@ impl DiskManager {
         }
     }
 
-    // 返回一个状态是NotUsed的块块号
+    // 遍历查找第一个空闲块的块号
+    // TODO 有优化的空间
     pub fn find_next_empty_fat(&self) -> Option<usize> {
         let mut res = None;
         for i in 0..(self.disk.fat.len() - 1) {
@@ -68,11 +69,10 @@ impl DiskManager {
                 break;
             }
         }
-
         res
     }
 
-    // 输入需要分配的块数量，在FAT表上标记为已用（分配新空间），返回被分配的块号数组。
+    // 查询是否有指定数量的空闲块，如果有在FAT表中修改相关值，然后返回块号数组
     pub fn allocate_free_space_on_fat(
         &mut self,
         clusters_needed: usize,
@@ -82,24 +82,23 @@ impl DiskManager {
 
         let mut clusters: Vec<usize> = Vec::with_capacity(clusters_needed);
         for i in 0..clusters_needed {
-            // 找到新未用的块
+            // 找到一个空闲块
             clusters.push(match self.find_next_empty_fat() {
                 Some(cluster) => cluster,
                 _ => return Err("[ERROR]\tCannot find a NotUsed FatItem!"),
             });
-            // this_cluster：每次循环进行操作的cluster
-            let this_cluster = clusters[i];
+            
+            let cur_cluster = clusters[i];
 
             // 对磁盘写入数据
             pdebug();
-            println!("Found new empty cluster: {}", this_cluster);
+            println!("Found new empty cluster: {}", cur_cluster);
             if i != 0 {
-                // 中间的和最后一次的写入
-                // 将上一块改写成指向当前块的FatItem
-                self.disk.fat[clusters[i - 1]] = FatItem::ClusterNo(this_cluster);
+                // 从第二块开始，将上一块的FAT值修改为当前块
+                self.disk.fat[clusters[i - 1]] = FatItem::ClusterNo(cur_cluster);
             }
-            // 默认当前块是最后的
-            self.disk.fat[this_cluster] = FatItem::EoF;
+            // 每次都将当前块作为最后一块，防止出现没有空闲块提前退出的情况
+            self.disk.fat[cur_cluster] = FatItem::EoF;
         }
 
         Ok(clusters)
@@ -115,34 +114,34 @@ impl DiskManager {
         pinfo();
         println!("Searching file clusters...");
         let mut clusters: Vec<usize> = Vec::new();
-        let mut this_cluster = first_cluster;
+        let mut cur_cluster = first_cluster;
 
         // 第一个块
         clusters.push(first_cluster);
 
         // 然后循环读出之后所有块
         loop {
-            match self.disk.fat[this_cluster] {
+            match self.disk.fat[cur_cluster] {
                 FatItem::ClusterNo(cluster) => {
                     pdebug();
                     println!("Found next cluster: {}.", cluster);
                     clusters.push(cluster);
-                    this_cluster = cluster;
+                    cur_cluster = cluster;
                 }
                 FatItem::EoF => {
                     pdebug();
-                    println!("Found EoF cluster: {}.", this_cluster);
+                    println!("Found EoF cluster: {}.", cur_cluster);
                     break Ok(clusters);
                 }
                 FatItem::BadCluster => {
                     // 跳过坏块
-                    this_cluster += 1;
+                    cur_cluster += 1;
                     continue;
                 }
                 _ => {
                     break Err(format!(
                         "[ERROR]\tBad cluster detected at {}!",
-                        this_cluster
+                        cur_cluster
                     ))
                 }
             }
