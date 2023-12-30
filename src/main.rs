@@ -9,13 +9,7 @@ use std::io::{Write, stdin, stdout};
 use disk_info::*;
 use disk_info::virtual_disk::*;
 
-
-fn main() {
-    // 是否从文件读取数据
-    let mut virtual_disk: DiskInfo = select_load_file_system(FILE_NAME);
-    ui_loop(&mut virtual_disk);
-}
-
+const FILE_NAME: &str = "./file_system";
 
 const PROMPT: &str = "\
 \n\t----------------------------------------------------------\
@@ -35,7 +29,11 @@ const PROMPT: &str = "\
 \n\t - test create <file_name>: Create a random test file.\
 \n";
 
-const FILE_NAME: &str = "./file_system";
+fn main() {
+    // 是否从文件读取数据
+    let mut virtual_disk: DiskInfo = select_load_file_system(FILE_NAME);
+    command_loop(&mut virtual_disk);
+}
 
 // 选择是否从文件加载虚拟文件系统
 fn select_load_file_system(filename: &str) -> DiskInfo {
@@ -68,7 +66,7 @@ fn select_load_file_system(filename: &str) -> DiskInfo {
 }
 
 // UI交互界面
-fn ui_loop(virtual_disk: &mut DiskInfo) {
+fn command_loop(virtual_disk: &mut DiskInfo) {
     // 提示
     println!("{}", PROMPT);
 
