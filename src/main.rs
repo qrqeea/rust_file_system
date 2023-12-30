@@ -17,7 +17,7 @@ fn main() {
 }
 
 /// 默认保存的文件名
-const SAVE_FILE_NAME: &str = "./file-system";
+const SAVE_FILE_NAME: &str = "./file_system";
 /// 系统UI默认提示
 const UI_HELP: &str = "\
 \n==================================================\
@@ -124,7 +124,7 @@ fn ui_loop(virtual_disk: &mut DiskManager) {
             println!("The virtual disk system has been saved.\n");
         } else if command_line.starts_with("ls") {
             // 列出目录文件
-            println!("{}", virtual_disk.cur_dir);
+            println!("{}", virtual_disk.cur_directory);
         } else if let Some(name) = command_line.strip_prefix("cd ") {
             // 切换到当前目录的某个文件夹
             pinfo();

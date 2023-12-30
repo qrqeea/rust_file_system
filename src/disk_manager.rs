@@ -17,7 +17,7 @@ pub fn pdebug() {
 #[derive(Serialize, Deserialize)]
 pub struct DiskManager {
     pub disk: Disk,
-    pub cur_dir: Directory,
+    pub cur_directory: Directory,
 }
 impl DiskManager {
     /// 初始化新磁盘，返回DiskManager对象。若输入None，则自动创建默认配置。
@@ -35,7 +35,7 @@ impl DiskManager {
 
         DiskManager {
             disk,
-            cur_dir: match root_dir {
+            cur_directory: match root_dir {
                 // 默认根目录配置
                 None => Directory {
                     name: String::from("root"),
@@ -205,7 +205,7 @@ impl DiskManager {
         pdebug();
         println!("Trying to write to disk...");
 
-        if let Some(_fcb) = self.cur_dir.get_fcb_by_name(name) {
+        if let Some(_fcb) = self.cur_directory.get_fcb_by_name(name) {
             return Err("[ERROR]\tThere's already a directory with a same name!");
         }
 
@@ -215,7 +215,7 @@ impl DiskManager {
         new_directory.files.push(Fcb {
             name: String::from(".."),
             file_type: FileType::Directory,
-            first_cluster: self.cur_dir.files[1].first_cluster,
+            first_cluster: self.cur_directory.files[1].first_cluster,
             length: 0,
         });
         // TODO: 为什么要加入自己？
@@ -237,7 +237,7 @@ impl DiskManager {
         println!("Trying to add dir to current dir...");
 
         // 在当前目录添加新目录
-        self.cur_dir.files.push(Fcb {
+        self.cur_directory.files.push(Fcb {
             name: String::from(name),
             file_type: FileType::Directory,
             first_cluster: first_block,
@@ -310,26 +310,26 @@ impl DiskManager {
             first_cluster,
             length: data.len(),
         };
-        self.cur_dir.files.push(fcb);
+        self.cur_directory.files.push(fcb);
     }
 
     // 通过文件名读取文件
     pub fn read_file_by_name(&self, name: &str) -> Vec<u8> {
-        let (_index, fcb) = self.cur_dir.get_fcb_by_name(name).unwrap();
+        let (_index, fcb) = self.cur_directory.get_fcb_by_name(name).unwrap();
         self.get_file_by_fcb(fcb)
     }
 
     // 通过文件名删除文件
     pub fn delete_file_by_name(&mut self, name: &str) -> Result<(), String> {
-        let index = self.cur_dir.get_index_by_name(name).unwrap();
+        let index = self.cur_directory.get_index_by_name(name).unwrap();
         // 从dir中先删除fcb，如果删除失败再还回来
         pdebug();
         println!("Trying to delete file in dir file list...");
-        let fcb = self.cur_dir.files.remove(index);
+        let fcb = self.cur_directory.files.remove(index);
         let res = self.delete_file_by_fcb_with_index(&fcb, None);
 
         if res.is_err() {
-            self.cur_dir.files.push(fcb);
+            self.cur_directory.files.push(fcb);
         }
 
         res
@@ -358,7 +358,7 @@ impl DiskManager {
         }
         // 若给定index非None，则删除目录下的FCB条目
         if let Some(i) = index {
-            self.cur_dir.files.remove(i);
+            self.cur_directory.files.remove(i);
         }
 
         Ok(())
@@ -367,13 +367,13 @@ impl DiskManager {
     // 切换到指定目录
     pub fn change_current_directory(&mut self, name: &str) {
         // 先保存当前目录数据到硬盘
-        let dir_cloned = self.cur_dir.clone();
+        let dir_cloned = self.cur_directory.clone();
         self.save_directory_to_disk(&dir_cloned);
         // 通过name获取要切换到的目录fcb
-        let (_index, dir_fcb) = self.cur_dir.get_fcb_by_name(name).unwrap();
+        let (_index, dir_fcb) = self.cur_directory.get_fcb_by_name(name).unwrap();
 
         let dir = self.get_directory_by_fcb(dir_fcb);
-        self.cur_dir = dir;
+        self.cur_directory = dir;
     }
 
     // 保存当前目录数据到硬盘，返回第一个块号——更改被保存，原目录文件将在磁盘上被覆盖
@@ -383,7 +383,7 @@ impl DiskManager {
         let data = bincode::serialize(dir).unwrap();
         let (insert_eof, clusters_needed) = DiskManager::calc_clusters_needed_with_eof(data.len());
         // 删除原先的块
-        self.delete_space_on_fat(self.cur_dir.files[1].first_cluster).unwrap();
+        self.delete_space_on_fat(self.cur_directory.files[1].first_cluster).unwrap();
         // 分配新的块
         let reallocated_clusters = self.allocate_free_space_on_fat(clusters_needed).unwrap();
         self.disk.write_data_by_clusters_with_eof(
@@ -398,23 +398,23 @@ impl DiskManager {
     // 文件改名
     // 目录改名要复杂一些，这里没实现
     pub fn rename_file_by_name(&mut self, old: &str, new: &str) {
-        let (index, fcb) = self.cur_dir.get_fcb_by_name(old).unwrap();
+        let (index, fcb) = self.cur_directory.get_fcb_by_name(old).unwrap();
         let new_fcb = Fcb {
             name: String::from(new),
             ..fcb.to_owned()
         };
-        self.cur_dir.files[index] = new_fcb;
+        self.cur_directory.files[index] = new_fcb;
     }
 
     // 移动文件
     pub fn movie_file_by_name(&mut self, file_name: &str, path: &str) {
-        let index = self.cur_dir.get_index_by_name(file_name).unwrap();
+        let index = self.cur_directory.get_index_by_name(file_name).unwrap();
         // 从当前目录中删除fcb
-        let fcb = self.cur_dir.files.remove(index);
-        self.save_directory_to_disk(&self.cur_dir.clone());
+        let fcb = self.cur_directory.files.remove(index);
+        self.save_directory_to_disk(&self.cur_directory.clone());
         
         let dir_names: Vec<&str> = path.split("/").collect();
-        let mut cur_directory = self.cur_dir.clone();
+        let mut cur_directory = self.cur_directory.clone();
         for dir_name in dir_names {
             if dir_name == "" {
                 continue;
@@ -459,15 +459,15 @@ impl DiskManager {
     // 这个也没用上
     pub fn move_fcb_between_dirs_by_name(&mut self, name: &str, des_dir: &mut Directory) {
         let fcb = self
-            .cur_dir
+            .cur_directory
             .files
-            .remove(self.cur_dir.get_index_by_name(name).unwrap());
+            .remove(self.cur_directory.get_index_by_name(name).unwrap());
         des_dir.files.push(fcb);
     }
 
     // 复制文件
     pub fn copy_file_by_name(&mut self, raw_name: &str, new_name: &str) -> bool {
-        let (_, fcb) = self.cur_dir.get_fcb_by_name(raw_name).unwrap();
+        let (_, fcb) = self.cur_directory.get_fcb_by_name(raw_name).unwrap();
         let data = self.get_file_by_fcb(fcb);
         self.create_file_with_data(new_name, &data);
         true

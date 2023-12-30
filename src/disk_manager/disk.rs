@@ -5,7 +5,7 @@ pub const BLOCK_SIZE: usize = 1024 * 4;     // 块大小：4KB
 
 pub const BLOCK_COUNT: usize = 1000;        // 块数量
 
-pub const EOF_BYTE: u8 = 255;               // 定义从后向前扫描时的EoF
+pub const EOF_BYTE: u8 = 255;
 
 #[derive(Serialize, Deserialize)]
 pub struct Disk {
