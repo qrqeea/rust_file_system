@@ -20,7 +20,7 @@ const PROMPT: &str = "\
 \n\t - ls : List all files and directory in current directory.\
 \n\t - cat <filename>: Show the file content.\
 \n\t - mkdir <directory name>: Create a new directory.\
-\n\t - cp <filename>: Copy a file in current directory.\
+\n\t - cp <filename> <new_filename>: Copy a file.\
 \n\t - rename <raw_name> <new_name>: Rename a file.\
 \n\t - rm <filename>: Delete a file on disk.\
 \n\t - mv <filename> <path>: Move a file on disk.\
