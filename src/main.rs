@@ -1,13 +1,13 @@
 #![allow(dead_code)]
 
-mod disk_manager;
+mod disk_info;
 use std::fs;
 use std::io::{stdin, stdout, Write};
 use std::str;
 use std::time::SystemTime;
 
-use disk_manager::virtual_disk::*;
-use disk_manager::*;
+use disk_info::virtual_disk::*;
+use disk_info::*;
 
 
 fn main() {
@@ -16,9 +16,9 @@ fn main() {
     ui_loop(&mut virtual_disk);
 }
 
-/// 默认保存的文件名
+
 const SAVE_FILE_NAME: &str = "./file_system";
-/// 系统UI默认提示
+
 const UI_HELP: &str = "\
 \n==================================================\
 \n           IvanD's Basic File System\
@@ -44,7 +44,7 @@ const UI_HELP: &str = "\
 \n"; // UI主菜单
 
 /// 使用交互式让用户选择是否从硬盘中加载DiskManager进行使用
-fn ui_load_dm_loop(filename: &str) -> DiskManager {
+fn ui_load_dm_loop(filename: &str) -> DiskInfo {
     let mut buf_str = String::new();
     loop {
         pinfo();
@@ -58,7 +58,7 @@ fn ui_load_dm_loop(filename: &str) -> DiskManager {
                 pinfo();
                 println!("Will not load vd file from disk.\n");
 
-                break DiskManager::new(None);
+                break DiskInfo::new(None);
             }
             'Y' | 'y' => {
                 pinfo();
@@ -76,7 +76,7 @@ fn ui_load_dm_loop(filename: &str) -> DiskManager {
 }
 
 /// 一个简单的交互式界面。
-fn ui_loop(virtual_disk: &mut DiskManager) {
+fn ui_loop(virtual_disk: &mut DiskInfo) {
     // 交互界面
     println!("{}", UI_HELP);
 

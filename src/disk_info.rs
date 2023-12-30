@@ -15,13 +15,13 @@ pub fn pdebug() {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct DiskManager {
+pub struct DiskInfo {
     pub disk: VirtualDisk,
     pub cur_directory: Directory,
 }
-impl DiskManager {
+impl DiskInfo {
     /// 初始化新磁盘，返回DiskManager对象。若输入None，则自动创建默认配置。
-    pub fn new(root_dir: Option<Directory>) -> DiskManager {
+    pub fn new(root_dir: Option<Directory>) -> DiskInfo {
         pinfo();
         println!("Creating new disk...");
         // 生成虚拟磁盘
@@ -33,7 +33,7 @@ impl DiskManager {
         }
         disk.fat[0] = FatItem::EoF;
 
-        DiskManager {
+        DiskInfo {
             disk,
             cur_directory: match root_dir {
                 // 默认根目录配置
@@ -185,7 +185,7 @@ impl DiskManager {
         pinfo();
         println!("Writing data to disk...");
 
-        let (insert_eof, clusters_needed) = DiskManager::calc_clusters_needed_with_eof(data.len());
+        let (insert_eof, clusters_needed) = DiskInfo::calc_clusters_needed_with_eof(data.len());
 
         let clusters = self.allocate_free_space_on_fat(clusters_needed).unwrap();
 
@@ -381,7 +381,7 @@ impl DiskManager {
         pdebug();
         println!("Trying to saving dir...");
         let data = bincode::serialize(dir).unwrap();
-        let (insert_eof, clusters_needed) = DiskManager::calc_clusters_needed_with_eof(data.len());
+        let (insert_eof, clusters_needed) = DiskInfo::calc_clusters_needed_with_eof(data.len());
         // 删除原先的块
         self.delete_space_on_fat(self.cur_directory.files[1].first_cluster).unwrap();
         // 分配新的块
@@ -424,7 +424,7 @@ impl DiskManager {
         }
         cur_directory.files.push(fcb);
         let data = bincode::serialize(&cur_directory).unwrap();
-        let (insert_eof, clusters_needed) = DiskManager::calc_clusters_needed_with_eof(data.len());
+        let (insert_eof, clusters_needed) = DiskInfo::calc_clusters_needed_with_eof(data.len());
         // 删除原先的块
         self.delete_space_on_fat(cur_directory.files[1].first_cluster).unwrap();
         // 分配新的块
