@@ -26,10 +26,10 @@ const PROMPT: &str = "\
 \n\t - ls : List all files and directory in current directory.\
 \n\t - cat <filename>: Show the file content.\
 \n\t - mkdir <directory name>: Create a new directory.\
-\n\t - cp <filename>: copy a file in current directory.\
+\n\t - cp <filename>: Copy a file in current directory.\
 \n\t - rm <filename>: Delete a file on disk.\
-\n\t - mv <filename>: move or rename a file on disk.\
-\n\t - save : Save this virtual disk to file 'file-sys.vd'\
+\n\t - mv <filename>: Move or rename a file on disk.\
+\n\t - save : Save this virtual disk to file 'file_system'\
 \n\t - diskinfo : Show some info about disk.\
 \n\t - exit : Exit the system.\
 \n\t - test create <file_name>: Create a random test file.\
@@ -67,9 +67,9 @@ fn select_load_file_system(filename: &str) -> DiskInfo {
     }
 }
 
-/// 一个简单的交互式界面。
+// UI交互界面
 fn ui_loop(virtual_disk: &mut DiskInfo) {
-    // 交互界面
+    // 提示
     println!("{}", PROMPT);
 
     let mut buf_str: String = String::new();

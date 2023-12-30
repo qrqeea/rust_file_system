@@ -16,14 +16,14 @@ pub struct DiskInfo {
 
 
 impl DiskInfo {
-    /// 初始化新磁盘，返回DiskManager对象。若输入None，则自动创建默认配置。
+    // 创建新文件系统，返回DiskInfo对象,root_dir为空表示按默认设置创建
     pub fn new(root_dir: Option<Directory>) -> DiskInfo {
         print_info();
-        println!("Creating new disk...");
-        // 生成虚拟磁盘
+        println!("Creating new file system");
+        // 创建VirtualDisk
         let mut disk = VirtualDisk::new();
         {
-            // 放置第一个根目录
+            // 创建根目录
             let dir_data: Vec<u8> = bincode::serialize(&root_dir).unwrap();
             disk.insert_data_by_offset(dir_data.as_slice(), 0);
         }
@@ -39,13 +39,13 @@ impl DiskInfo {
                         Fcb {
                             name: String::from(".."),
                             file_type: FileType::Directory,
-                            first_cluster: 0,
+                            first_block: 0,
                             length: 0,
                         },
                         Fcb {
                             name: String::from("."),
                             file_type: FileType::Directory,
-                            first_cluster: 0,
+                            first_block: 0,
                             length: 0,
                         },
                     ],
@@ -134,7 +134,7 @@ impl DiskInfo {
         }
     }
 
-    /// 释放从first_cluster开始已经被分配的块
+    // 释放从first_cluster开始已经被分配的块
     fn delete_space_on_fat(&mut self, first_cluster: usize) -> Result<Vec<usize>, String> {
         print_info();
         println!("Deleting Fat space...");
@@ -201,14 +201,14 @@ impl DiskInfo {
         new_directory.files.push(Fcb {
             name: String::from(".."),
             file_type: FileType::Directory,
-            first_cluster: self.cur_directory.files[1].first_cluster,
+            first_block: self.cur_directory.files[1].first_block,
             length: 0,
         });
         // TODO: 为什么要加入自己？
         new_directory.files.push(Fcb {
             name: String::from("."),
             file_type: FileType::Directory,
-            first_cluster: self.find_next_empty_fat().unwrap(),
+            first_block: self.find_next_empty_fat().unwrap(),
             length: 0,
         });
 
@@ -226,7 +226,7 @@ impl DiskInfo {
         self.cur_directory.files.push(Fcb {
             name: String::from(name),
             file_type: FileType::Directory,
-            first_cluster: first_block,
+            first_block,
             length: 0,
         });
         print_debug_info();
@@ -260,7 +260,7 @@ impl DiskInfo {
         println!("Getting dir by FCB...\n\tFCB: {:?}", dir_fcb);
         match dir_fcb.file_type {
             FileType::Directory => {
-                let data_dir = self.get_data_by_first_cluster(dir_fcb.first_cluster);
+                let data_dir = self.get_data_by_first_cluster(dir_fcb.first_block);
                 print_debug_info();
                 println!("Trying to deserialize data read from disk...");
                 let dir: Directory = bincode::deserialize(data_dir.as_slice()).unwrap();
@@ -277,7 +277,7 @@ impl DiskInfo {
         print_info();
         println!("Getting file data by FCB...\n\tFCB: {:?}", fcb);
         match fcb.file_type {
-            FileType::File => self.get_data_by_first_cluster(fcb.first_cluster),
+            FileType::File => self.get_data_by_first_cluster(fcb.first_block),
             _ => panic!("[ERROR]\tGet File recieved a non-File FCB!"),
         }
     }
@@ -293,7 +293,7 @@ impl DiskInfo {
         let fcb: Fcb = Fcb {
             name: String::from(name),
             file_type: FileType::File,
-            first_cluster,
+            first_block: first_cluster,
             length: data.len(),
         };
         self.cur_directory.files.push(fcb);
@@ -339,7 +339,7 @@ impl DiskInfo {
             fcb.name
         );
         // 直接返回删除文件的结果
-        if let Err(err) = self.delete_space_on_fat(fcb.first_cluster) {
+        if let Err(err) = self.delete_space_on_fat(fcb.first_block) {
             return Err(err);
         }
         // 若给定index非None，则删除目录下的FCB条目
@@ -369,7 +369,7 @@ impl DiskInfo {
         let data = bincode::serialize(dir).unwrap();
         let (insert_eof, clusters_needed) = DiskInfo::calc_clusters_needed_with_eof(data.len());
         // 删除原先的块
-        self.delete_space_on_fat(self.cur_directory.files[1].first_cluster).unwrap();
+        self.delete_space_on_fat(self.cur_directory.files[1].first_block).unwrap();
         // 分配新的块
         let reallocated_clusters = self.allocate_free_space_on_fat(clusters_needed).unwrap();
         self.virtual_disk.write_data_by_clusters_with_eof(
@@ -412,7 +412,7 @@ impl DiskInfo {
         let data: Vec<u8> = bincode::serialize(&cur_directory).unwrap();
         let (insert_eof, clusters_needed) = DiskInfo::calc_clusters_needed_with_eof(data.len());
         // 删除原先的块
-        self.delete_space_on_fat(cur_directory.files[1].first_cluster).unwrap();
+        self.delete_space_on_fat(cur_directory.files[1].first_block).unwrap();
         // 分配新的块
         let reallocated_clusters: Vec<usize> = self.allocate_free_space_on_fat(clusters_needed).unwrap();
         self.virtual_disk.write_data_by_clusters_with_eof(
@@ -476,8 +476,8 @@ impl fmt::Display for FileType {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Fcb {
     name: String,         // 文件名
-    file_type: FileType,  // 文件类型
-    first_cluster: usize, // 起始块号
+    file_type: FileType,  // 文件or目录
+    first_block: usize,   // 起始块号
     length: usize,        // 文件大小
 }
 
