@@ -21,9 +21,10 @@ const PROMPT: &str = "\
 \n\t - cat <filename>: Show the file content.\
 \n\t - mkdir <directory name>: Create a new directory.\
 \n\t - cp <filename>: Copy a file in current directory.\
+\n\t - rename <raw_name> <new_name>: Rename a file.\
 \n\t - rm <filename>: Delete a file on disk.\
-\n\t - mv <filename>: Move or rename a file on disk.\
-\n\t - save : Save this virtual disk to file 'file_system'\
+\n\t - mv <filename> <path>: Move a file on disk.\
+\n\t - save : Save this virtual disk to file 'file_system'.\
 \n\t - diskinfo : Show some info about disk.\
 \n\t - exit : Exit the system.\
 \n\t - test create <file_name>: Create a random test file.\
@@ -150,7 +151,7 @@ fn command_loop(virtual_disk: &mut DiskInfo) {
             let dir_name = command_line.trim();
             virtual_disk.new_directory_to_disk(dir_name).unwrap();
         }  else if let Some(command_line) = command_line.strip_prefix("mv ") {
-            // 重命名/移动文件
+            // 移动文件
             let name: Vec<&str> = command_line.trim().split(" ").collect();
             if name.len() != 2 {
                 println!("Parameter Error!");
@@ -159,11 +160,17 @@ fn command_loop(virtual_disk: &mut DiskInfo) {
             if name[1].contains("/") {
                 // 移动，path暂时只支持相对路径
                 virtual_disk.movie_file_by_name(name[0], name[1]);
-            } else {
-                // 重命名
-                virtual_disk.rename_file_by_name(name[0], name[1]);
             }
-        } else {
+        } else if let Some(command_line) = command_line.strip_prefix("rename ") {
+            // 重命名
+            let name: Vec<&str> = command_line.trim().split(" ").collect();
+            if name.len() != 2 {
+                println!("Parameter Error!");
+                continue;
+            }
+            virtual_disk.rename_file_by_name(name[0], name[1]);
+        } 
+        else {
             // 不支持的命令
             println!("Unsupported command");
         }
