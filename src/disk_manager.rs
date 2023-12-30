@@ -1,5 +1,5 @@
-pub mod disk;
-use disk::{Disk, FatItem, BLOCK_COUNT, BLOCK_SIZE};
+pub mod virtual_disk;
+use virtual_disk::{VirtualDisk, FatItem, BLOCK_COUNT, BLOCK_SIZE};
 
 use ansi_rgb::Foreground;
 use core::panic;
@@ -16,7 +16,7 @@ pub fn pdebug() {
 
 #[derive(Serialize, Deserialize)]
 pub struct DiskManager {
-    pub disk: Disk,
+    pub disk: VirtualDisk,
     pub cur_directory: Directory,
 }
 impl DiskManager {
@@ -25,7 +25,7 @@ impl DiskManager {
         pinfo();
         println!("Creating new disk...");
         // 生成虚拟磁盘
-        let mut disk = Disk::new();
+        let mut disk = VirtualDisk::new();
         {
             // 放置第一个根目录
             let dir_data = bincode::serialize(&root_dir).unwrap();

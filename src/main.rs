@@ -6,7 +6,7 @@ use std::io::{stdin, stdout, Write};
 use std::str;
 use std::time::SystemTime;
 
-use disk_manager::disk::*;
+use disk_manager::virtual_disk::*;
 use disk_manager::*;
 
 

@@ -8,14 +8,14 @@ pub const BLOCK_COUNT: usize = 1000;        // 块数量
 pub const EOF_BYTE: u8 = 255;
 
 #[derive(Serialize, Deserialize)]
-pub struct Disk {
+pub struct VirtualDisk {
     pub fat: Vec<FatItem>,
     data: Vec<u8>,
 }
 
-impl Disk {
-    pub fn new() -> Disk {
-        Disk {
+impl VirtualDisk {
+    pub fn new() -> VirtualDisk {
+        VirtualDisk {
             // 创建FAT文件分配表
             fat: vec![FatItem::NotUsed; BLOCK_COUNT],
             // 数据区，初始值为0，块大小为4KB.
