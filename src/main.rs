@@ -1,27 +1,27 @@
 #![allow(dead_code)]
 
 mod disk_info;
-use std::fs;
-use std::io::{stdin, stdout, Write};
-use std::str;
-use std::time::SystemTime;
 
-use disk_info::virtual_disk::*;
+use std::str;
+use std::fs;
+use std::time::SystemTime;
+use std::io::{Write, stdin, stdout};
 use disk_info::*;
+use disk_info::virtual_disk::*;
 
 
 fn main() {
     // 是否从文件读取数据
-    let mut virtual_disk = ui_load_dm_loop(SAVE_FILE_NAME);
+    let mut virtual_disk: DiskInfo = ui_load_dm_loop(FILE_NAME);
     ui_loop(&mut virtual_disk);
 }
 
 
-const SAVE_FILE_NAME: &str = "./file_system";
+const FILE_NAME: &str = "./file_system";
 
-const UI_HELP: &str = "\
+const PROMPT: &str = "\
 \n==================================================\
-\n           IvanD's Basic File System\
+\n               rust_file_system\
 \n==================================================\
 \nHelp:\
 \n\tcd <dirname>: Change current dir.\
@@ -78,7 +78,7 @@ fn ui_load_dm_loop(filename: &str) -> DiskInfo {
 /// 一个简单的交互式界面。
 fn ui_loop(virtual_disk: &mut DiskInfo) {
     // 交互界面
-    println!("{}", UI_HELP);
+    println!("{}", PROMPT);
 
     let mut buf_str: String = String::new();
 
@@ -108,7 +108,7 @@ fn ui_loop(virtual_disk: &mut DiskInfo) {
             }
         } else if command_line.starts_with("help") {
             // 显示菜单
-            println!("{}", UI_HELP);
+            println!("{}", PROMPT);
         } else if command_line.starts_with("exit") {
             // 跳出循环，结束程序
             pinfo();
@@ -119,12 +119,17 @@ fn ui_loop(virtual_disk: &mut DiskInfo) {
             pinfo();
             println!("Saving...");
             let data: Vec<u8> = bincode::serialize(&virtual_disk).unwrap();
-            fs::write(SAVE_FILE_NAME, data.as_slice()).unwrap();
+            fs::write(FILE_NAME, data.as_slice()).unwrap();
             pinfo();
             println!("The virtual disk system has been saved.\n");
         } else if command_line.starts_with("ls") {
             // 列出目录文件
             println!("{}", virtual_disk.cur_directory);
+        } else if let Some(command_line) = command_line.strip_prefix("rm ") {
+            let name = command_line.trim();
+            virtual_disk
+                .delete_file_by_name(name)
+                .expect("[ERROR]\tDELETE FILE FAILED!");
         } else if let Some(name) = command_line.strip_prefix("cd ") {
             // 切换到当前目录的某个文件夹
             pinfo();
@@ -135,6 +140,14 @@ fn ui_loop(virtual_disk: &mut DiskInfo) {
             let name: &str = command_line.trim();
             let data: Vec<u8> = virtual_disk.read_file_by_name(name);
             println!("{}", str::from_utf8(data.as_slice()).unwrap());
+        } else if let Some(command_line) = command_line.strip_prefix("cp ") {
+            // 复制文件
+            let name: Vec<&str> = command_line.trim().split(" ").collect();
+            if name.len() != 2 {
+                println!("Parameter Error!");
+                continue;
+            }
+            virtual_disk.copy_file_by_name(name[0], name[1]);
         } else if let Some(command_line) = command_line.strip_prefix("mkdir ") {
             // 创建新文件夹
             let name = command_line.trim();
@@ -148,19 +161,6 @@ fn ui_loop(virtual_disk: &mut DiskInfo) {
                 num_used * BLOCK_SIZE,
                 num_not_used * BLOCK_SIZE
             );
-        } else if let Some(command_line) = command_line.strip_prefix("rm ") {
-            let name = command_line.trim();
-            virtual_disk
-                .delete_file_by_name(name)
-                .expect("[ERROR]\tDELETE FILE FAILED!");
-        } else if let Some(command_line) = command_line.strip_prefix("cp ") {
-            // 复制文件
-            let name: Vec<&str> = command_line.trim().split(" ").collect();
-            if name.len() != 2 {
-                println!("Parameter Error!");
-                continue;
-            }
-            virtual_disk.copy_file_by_name(name[0], name[1]);
         } else if let Some(command_line) = command_line.strip_prefix("mv ") {
             // 重命名/移动文件
             let name: Vec<&str> = command_line.trim().split(" ").collect();

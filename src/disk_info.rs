@@ -1,24 +1,20 @@
 pub mod virtual_disk;
-use virtual_disk::{VirtualDisk, FatItem, BLOCK_COUNT, BLOCK_SIZE};
 
-use ansi_rgb::Foreground;
-use core::panic;
-use serde::{Deserialize, Serialize};
 use std::str;
-use std::{fmt, string::String, usize, vec::Vec};
+use core::panic;
+use ansi_rgb::Foreground;
+use serde::{Deserialize, Serialize};
+use std::{fmt, vec::Vec, string::String, usize};
+use virtual_disk::{FatItem, VirtualDisk, BLOCK_SIZE, BLOCK_COUNT};
 
-pub fn pinfo() {
-    print!("{}", "[INFO]\t".fg(ansi_rgb::cyan_blue()));
-}
-pub fn pdebug() {
-    print!("{}", "[DEBUG]\t".fg(ansi_rgb::magenta()));
-}
 
 #[derive(Serialize, Deserialize)]
 pub struct DiskInfo {
-    pub disk: VirtualDisk,
+    pub virtual_disk: VirtualDisk,
     pub cur_directory: Directory,
 }
+
+
 impl DiskInfo {
     /// 初始化新磁盘，返回DiskManager对象。若输入None，则自动创建默认配置。
     pub fn new(root_dir: Option<Directory>) -> DiskInfo {
@@ -34,7 +30,7 @@ impl DiskInfo {
         disk.fat[0] = FatItem::EoF;
 
         DiskInfo {
-            disk,
+            virtual_disk: disk,
             cur_directory: match root_dir {
                 // 默认根目录配置
                 None => Directory {
@@ -63,8 +59,8 @@ impl DiskInfo {
     // TODO 有优化的空间
     pub fn find_next_empty_fat(&self) -> Option<usize> {
         let mut res: Option<usize> = None;
-        for i in 0..(self.disk.fat.len() - 1) {
-            if let FatItem::NotUsed = self.disk.fat[i] {
+        for i in 0..(self.virtual_disk.fat.len() - 1) {
+            if let FatItem::NotUsed = self.virtual_disk.fat[i] {
                 res = Some(i);
                 break;
             }
@@ -95,10 +91,10 @@ impl DiskInfo {
             println!("Found new empty cluster: {}", cur_cluster);
             if i != 0 {
                 // 从第二块开始，将上一块的FAT值修改为当前块
-                self.disk.fat[clusters[i - 1]] = FatItem::ClusterNo(cur_cluster);
+                self.virtual_disk.fat[clusters[i - 1]] = FatItem::ClusterNo(cur_cluster);
             }
             // 每次都将当前块作为最后一块，防止出现没有空闲块提前退出的情况
-            self.disk.fat[cur_cluster] = FatItem::EoF;
+            self.virtual_disk.fat[cur_cluster] = FatItem::EoF;
         }
 
         Ok(clusters)
@@ -121,7 +117,7 @@ impl DiskInfo {
 
         // 然后循环读出之后所有块
         loop {
-            match self.disk.fat[cur_cluster] {
+            match self.virtual_disk.fat[cur_cluster] {
                 FatItem::ClusterNo(cluster) => {
                     pdebug();
                     println!("Found next cluster: {}.", cluster);
@@ -155,7 +151,7 @@ impl DiskInfo {
         let clusters_result: Result<Vec<usize>, String> = self.get_file_clusters(first_cluster);
         let clusters: Vec<usize> = clusters_result.clone().unwrap();
         for cluster in clusters {
-            self.disk.fat[cluster] = FatItem::NotUsed;
+            self.virtual_disk.fat[cluster] = FatItem::NotUsed;
         }
 
         clusters_result
@@ -189,7 +185,7 @@ impl DiskInfo {
 
         let clusters: Vec<usize> = self.allocate_free_space_on_fat(clusters_needed).unwrap();
 
-        self.disk.write_data_by_clusters_with_eof(data, clusters.as_slice(), insert_eof);
+        self.virtual_disk.write_data_by_clusters_with_eof(data, clusters.as_slice(), insert_eof);
 
         pdebug();
         println!("Writing finished. Returned clusters: {:?}", clusters);
@@ -259,7 +255,7 @@ impl DiskInfo {
 
         let clusters: Vec<usize> = self.get_file_clusters(first_cluster).unwrap();
         let data: Vec<u8> = self
-            .disk
+            .virtual_disk
             .read_data_by_clusters_without_eof(clusters.as_slice());
 
         pdebug();
@@ -386,7 +382,7 @@ impl DiskInfo {
         self.delete_space_on_fat(self.cur_directory.files[1].first_cluster).unwrap();
         // 分配新的块
         let reallocated_clusters = self.allocate_free_space_on_fat(clusters_needed).unwrap();
-        self.disk.write_data_by_clusters_with_eof(
+        self.virtual_disk.write_data_by_clusters_with_eof(
             data.as_slice(),
             reallocated_clusters.as_slice(),
             insert_eof,
@@ -429,7 +425,7 @@ impl DiskInfo {
         self.delete_space_on_fat(cur_directory.files[1].first_cluster).unwrap();
         // 分配新的块
         let reallocated_clusters: Vec<usize> = self.allocate_free_space_on_fat(clusters_needed).unwrap();
-        self.disk.write_data_by_clusters_with_eof(
+        self.virtual_disk.write_data_by_clusters_with_eof(
             data.as_slice(),
             reallocated_clusters.as_slice(),
             insert_eof,
@@ -443,7 +439,7 @@ impl DiskInfo {
         let mut num_used: usize = 0usize;
         let mut num_not_used: usize = 0usize;
 
-        for fat_item in &self.disk.fat {
+        for fat_item in &self.virtual_disk.fat {
             match fat_item {
                 FatItem::ClusterNo(_no) => num_used += 1,
                 FatItem::EoF => num_used += 1,
@@ -551,4 +547,12 @@ impl fmt::Display for Directory {
 
         fmt::Result::Ok(())
     }
+}
+
+pub fn pdebug() {
+    print!("{}", "[DEBUG]\t".fg(ansi_rgb::magenta()));
+}
+
+pub fn pinfo() {
+    print!("{}", "[INFO]\t".fg(ansi_rgb::cyan_blue()));
 }
