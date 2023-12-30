@@ -17,6 +17,7 @@ const PROMPT: &str = "\
 \n\t----------------------------------------------------------\
 \n\tCommands:\
 \n\t - cd <directory_name>: Change current directory.\
+\n\t - touch <filename>: Create a new file.\
 \n\t - ls : List all files and directory in current directory.\
 \n\t - cat <filename>: Show the file content.\
 \n\t - mkdir <directory name>: Create a new directory.\
@@ -81,20 +82,11 @@ fn command_loop(virtual_disk: &mut DiskInfo) {
         // 去除首尾空格
         let command_line: String = String::from(buf_str.trim());
 
-        // 生成测试文件
-        if let Some(cl) = command_line.strip_prefix("test ") {
-            if let Some(cl) = cl.strip_prefix("create") {
-                let data: String = format!("Generate test file at {:?} .", SystemTime::now());
-                let cl_trim: &str = cl.trim();
-                let name: String = if !cl_trim.is_empty() {
-                    // 自定义文件名
-                    cl_trim.to_string()
-                } else {
-                    // 随机生成文件名
-                    format!("test_file_{}", (rand::random::<f32>() * 100_f32) as usize)
-                };
-                virtual_disk.create_file_with_data(name.as_str(), data.as_bytes());
-            }
+        // 创建文件
+        if let Some(cl) = command_line.strip_prefix("touch ") {
+            let file_name: &str = cl.trim();
+            let data: String = format!("Generate file at {:?} .", SystemTime::now());
+            virtual_disk.create_file_with_data(file_name, data.as_bytes());
         } else if command_line.starts_with("help") {
             // 显示菜单
             println!("{}", PROMPT);
