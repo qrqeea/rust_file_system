@@ -28,7 +28,7 @@ impl DiskInfo {
         let mut disk = VirtualDisk::new();
         {
             // 放置第一个根目录
-            let dir_data = bincode::serialize(&root_dir).unwrap();
+            let dir_data: Vec<u8> = bincode::serialize(&root_dir).unwrap();
             disk.insert_data_by_offset(dir_data.as_slice(), 0);
         }
         disk.fat[0] = FatItem::EoF;
@@ -62,7 +62,7 @@ impl DiskInfo {
     // 遍历查找第一个空闲块的块号
     // TODO 有优化的空间
     pub fn find_next_empty_fat(&self) -> Option<usize> {
-        let mut res = None;
+        let mut res: Option<usize> = None;
         for i in 0..(self.disk.fat.len() - 1) {
             if let FatItem::NotUsed = self.disk.fat[i] {
                 res = Some(i);
@@ -88,7 +88,7 @@ impl DiskInfo {
                 _ => return Err("[ERROR]\tCannot find a NotUsed FatItem!"),
             });
             
-            let cur_cluster = clusters[i];
+            let cur_cluster: usize = clusters[i];
 
             // 对磁盘写入数据
             pdebug();
@@ -114,7 +114,7 @@ impl DiskInfo {
         pinfo();
         println!("Searching file clusters...");
         let mut clusters: Vec<usize> = Vec::new();
-        let mut cur_cluster = first_cluster;
+        let mut cur_cluster: usize = first_cluster;
 
         // 第一个块
         clusters.push(first_cluster);
@@ -152,8 +152,8 @@ impl DiskInfo {
     fn delete_space_on_fat(&mut self, first_cluster: usize) -> Result<Vec<usize>, String> {
         pinfo();
         println!("Deleting Fat space...");
-        let clusters_result = self.get_file_clusters(first_cluster);
-        let clusters = clusters_result.clone().unwrap();
+        let clusters_result: Result<Vec<usize>, String> = self.get_file_clusters(first_cluster);
+        let clusters: Vec<usize> = clusters_result.clone().unwrap();
         for cluster in clusters {
             self.disk.fat[cluster] = FatItem::NotUsed;
         }
@@ -168,7 +168,7 @@ impl DiskInfo {
         let mut clusters_needed: f32 = length as f32 / BLOCK_SIZE as f32;
 
         // 需要的块数为整数不需要写入结束标志，否则需要写入结束标志
-        let insert_eof = if (clusters_needed - clusters_needed as usize as f32) < 0.0000000001 {
+        let insert_eof: bool = if (clusters_needed - clusters_needed as usize as f32) < 0.0000000001 {
             false
         } else {
             // 向上取整
@@ -187,7 +187,7 @@ impl DiskInfo {
 
         let (insert_eof, clusters_needed) = DiskInfo::calc_clusters_needed_with_eof(data.len());
 
-        let clusters = self.allocate_free_space_on_fat(clusters_needed).unwrap();
+        let clusters: Vec<usize> = self.allocate_free_space_on_fat(clusters_needed).unwrap();
 
         self.disk.write_data_by_clusters_with_eof(data, clusters.as_slice(), insert_eof);
 
@@ -231,7 +231,7 @@ impl DiskInfo {
         pdebug();
         println!("Dir bytes: {:?}", bin_dir);
         // 将新建的目录写入到硬盘
-        let first_block = self.write_data_to_disk(&bin_dir);
+        let first_block: usize = self.write_data_to_disk(&bin_dir);
 
         pdebug();
         println!("Trying to add dir to current dir...");
@@ -257,8 +257,8 @@ impl DiskInfo {
         pdebug();
         println!("Getting data from disk by clusters...");
 
-        let clusters = self.get_file_clusters(first_cluster).unwrap();
-        let data = self
+        let clusters: Vec<usize> = self.get_file_clusters(first_cluster).unwrap();
+        let data: Vec<u8> = self
             .disk
             .read_data_by_clusters_without_eof(clusters.as_slice());
 
@@ -304,7 +304,7 @@ impl DiskInfo {
         // 写入数据
         let first_cluster = self.write_data_to_disk(data);
         // 创建新FCB并插入当前目录中
-        let fcb = Fcb {
+        let fcb: Fcb = Fcb {
             name: String::from(name),
             file_type: FileType::File,
             first_cluster,
@@ -321,12 +321,12 @@ impl DiskInfo {
 
     // 通过文件名删除文件
     pub fn delete_file_by_name(&mut self, name: &str) -> Result<(), String> {
-        let index = self.cur_directory.get_index_by_name(name).unwrap();
+        let index: usize = self.cur_directory.get_index_by_name(name).unwrap();
         // 从dir中先删除fcb，如果删除失败再还回来
         pdebug();
         println!("Trying to delete file in dir file list...");
-        let fcb = self.cur_directory.files.remove(index);
-        let res = self.delete_file_by_fcb_with_index(&fcb, None);
+        let fcb: Fcb = self.cur_directory.files.remove(index);
+        let res: Result<(), String> = self.delete_file_by_fcb_with_index(&fcb, None);
 
         if res.is_err() {
             self.cur_directory.files.push(fcb);
@@ -342,7 +342,7 @@ impl DiskInfo {
         index: Option<usize>,
     ) -> Result<(), String> {
         if let FileType::Directory = fcb.file_type {
-            let dir = self.get_directory_by_fcb(fcb);
+            let dir: Directory = self.get_directory_by_fcb(fcb);
             if dir.files.len() > 2 {
                 return Err(String::from("[ERROR]\tThe Directory is not empty!"));
             }
@@ -367,12 +367,12 @@ impl DiskInfo {
     // 切换到指定目录
     pub fn change_current_directory(&mut self, name: &str) {
         // 先保存当前目录数据到硬盘
-        let dir_cloned = self.cur_directory.clone();
+        let dir_cloned: Directory = self.cur_directory.clone();
         self.save_directory_to_disk(&dir_cloned);
         // 通过name获取要切换到的目录fcb
         let (_index, dir_fcb) = self.cur_directory.get_fcb_by_name(name).unwrap();
 
-        let dir = self.get_directory_by_fcb(dir_fcb);
+        let dir: Directory = self.get_directory_by_fcb(dir_fcb);
         self.cur_directory = dir;
     }
 
@@ -399,7 +399,7 @@ impl DiskInfo {
     // 目录改名要复杂一些，这里没实现
     pub fn rename_file_by_name(&mut self, old: &str, new: &str) {
         let (index, fcb) = self.cur_directory.get_fcb_by_name(old).unwrap();
-        let new_fcb = Fcb {
+        let new_fcb: Fcb = Fcb {
             name: String::from(new),
             ..fcb.to_owned()
         };
@@ -410,7 +410,7 @@ impl DiskInfo {
     pub fn movie_file_by_name(&mut self, file_name: &str, path: &str) {
         let index = self.cur_directory.get_index_by_name(file_name).unwrap();
         // 从当前目录中删除fcb
-        let fcb = self.cur_directory.files.remove(index);
+        let fcb: Fcb = self.cur_directory.files.remove(index);
         self.save_directory_to_disk(&self.cur_directory.clone());
         
         let dir_names: Vec<&str> = path.split("/").collect();
@@ -423,12 +423,12 @@ impl DiskInfo {
             cur_directory = self.get_directory_by_fcb(dir_fcb);
         }
         cur_directory.files.push(fcb);
-        let data = bincode::serialize(&cur_directory).unwrap();
+        let data: Vec<u8> = bincode::serialize(&cur_directory).unwrap();
         let (insert_eof, clusters_needed) = DiskInfo::calc_clusters_needed_with_eof(data.len());
         // 删除原先的块
         self.delete_space_on_fat(cur_directory.files[1].first_cluster).unwrap();
         // 分配新的块
-        let reallocated_clusters = self.allocate_free_space_on_fat(clusters_needed).unwrap();
+        let reallocated_clusters: Vec<usize> = self.allocate_free_space_on_fat(clusters_needed).unwrap();
         self.disk.write_data_by_clusters_with_eof(
             data.as_slice(),
             reallocated_clusters.as_slice(),
@@ -439,9 +439,9 @@ impl DiskInfo {
     // 获取部分磁盘信息
     // 返回 磁盘总大小/Byte，已分配块数量、未分配块的数量
     pub fn get_disk_info(&self) -> (usize, usize, usize) {
-        let disk_size = BLOCK_SIZE * BLOCK_COUNT;
-        let mut num_used = 0usize;
-        let mut num_not_used = 0usize;
+        let disk_size: usize = BLOCK_SIZE * BLOCK_COUNT;
+        let mut num_used: usize = 0usize;
+        let mut num_not_used: usize = 0usize;
 
         for fat_item in &self.disk.fat {
             match fat_item {
@@ -468,7 +468,7 @@ impl DiskInfo {
     // 复制文件
     pub fn copy_file_by_name(&mut self, raw_name: &str, new_name: &str) -> bool {
         let (_, fcb) = self.cur_directory.get_fcb_by_name(raw_name).unwrap();
-        let data = self.get_file_by_fcb(fcb);
+        let data: Vec<u8> = self.get_file_by_fcb(fcb);
         self.create_file_with_data(new_name, &data);
         true
     }
@@ -511,7 +511,7 @@ impl Directory {
 
     // 通过文件名获取文件在files中的索引和文件FCB
     fn get_fcb_by_name(&self, name: &str) -> Option<(usize, &Fcb)> {
-        let mut res = None;
+        let mut res: Option<(usize, &Fcb)> = None;
         for i in 0..self.files.len() {
             if self.files[i].name.as_str() == name {
                 res = Some((i, &self.files[i]));
@@ -524,7 +524,7 @@ impl Directory {
 
     // 通过文件名获取文件在files中的索引
     fn get_index_by_name(&self, name: &str) -> Option<usize> {
-        let mut res = None;
+        let mut res: Option<usize> = None;
         for i in 0..self.files.len() {
             if self.files[i].name.as_str() == name {
                 res = Some(i);

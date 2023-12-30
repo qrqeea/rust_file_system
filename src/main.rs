@@ -45,13 +45,13 @@ const UI_HELP: &str = "\
 
 /// 使用交互式让用户选择是否从硬盘中加载DiskManager进行使用
 fn ui_load_dm_loop(filename: &str) -> DiskInfo {
-    let mut buf_str = String::new();
+    let mut buf_str: String = String::new();
     loop {
         pinfo();
         print!("Do you want to try to load file-sys.vd? [Y/N] ");
         stdout().flush().unwrap();
         stdin().read_line(&mut buf_str).unwrap();
-        let first_char = buf_str.as_str().trim().chars().next().unwrap();
+        let first_char: char = buf_str.as_str().trim().chars().next().unwrap();
 
         match first_char {
             'N' | 'n' => {
@@ -63,7 +63,7 @@ fn ui_load_dm_loop(filename: &str) -> DiskInfo {
             'Y' | 'y' => {
                 pinfo();
                 println!("Trying to load vd file from disk...\n");
-                let data = fs::read(filename).unwrap();
+                let data: Vec<u8> = fs::read(filename).unwrap();
 
                 break bincode::deserialize(data.as_slice()).unwrap();
             }
@@ -80,7 +80,7 @@ fn ui_loop(virtual_disk: &mut DiskInfo) {
     // 交互界面
     println!("{}", UI_HELP);
 
-    let mut buf_str = String::new();
+    let mut buf_str: String = String::new();
 
     loop {
         // 清空buffer
@@ -89,15 +89,15 @@ fn ui_loop(virtual_disk: &mut DiskInfo) {
         stdout().flush().unwrap();
         stdin().read_line(&mut buf_str).unwrap();
         // 去除首尾空格
-        let command_line = String::from(buf_str.trim());
+        let command_line: String = String::from(buf_str.trim());
 
         // 分支-test
         if let Some(cl) = command_line.strip_prefix("test ") {
             // 分支-create
             if let Some(cl) = cl.strip_prefix("create") {
-                let data = format!("File has been created at {:?} .", SystemTime::now());
-                let cl_trim = cl.trim();
-                let name = if cl_trim.is_empty() {
+                let data: String = format!("File has been created at {:?} .", SystemTime::now());
+                let cl_trim: &str = cl.trim();
+                let name: String = if cl_trim.is_empty() {
                     // 没有输入名字
                     format!("test-{}", (rand::random::<f32>() * 100_f32) as usize)
                 } else {
@@ -118,7 +118,7 @@ fn ui_loop(virtual_disk: &mut DiskInfo) {
             // 保存系统
             pinfo();
             println!("Saving...");
-            let data = bincode::serialize(&virtual_disk).unwrap();
+            let data: Vec<u8> = bincode::serialize(&virtual_disk).unwrap();
             fs::write(SAVE_FILE_NAME, data.as_slice()).unwrap();
             pinfo();
             println!("The virtual disk system has been saved.\n");
@@ -132,8 +132,8 @@ fn ui_loop(virtual_disk: &mut DiskInfo) {
             virtual_disk.change_current_directory(name);
         } else if let Some(command_line) = command_line.strip_prefix("cat ") {
             // 显示文件内容
-            let name = command_line.trim();
-            let data = virtual_disk.read_file_by_name(name);
+            let name: &str = command_line.trim();
+            let data: Vec<u8> = virtual_disk.read_file_by_name(name);
             println!("{}", str::from_utf8(data.as_slice()).unwrap());
         } else if let Some(command_line) = command_line.strip_prefix("mkdir ") {
             // 创建新文件夹

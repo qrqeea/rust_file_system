@@ -81,7 +81,7 @@ impl VirtualDisk {
 
         // 循环读出所有数据
         for cluster in clusters {
-            let mut buffer = self.read_data_by_cluster(*cluster);
+            let mut buffer: Vec<u8> = self.read_data_by_cluster(*cluster);
             data.append(&mut buffer);
         }
         // 从后向前查找，从EoF开始截断。若未找到EoF则直接返回。
