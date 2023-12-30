@@ -12,63 +12,55 @@ use disk_info::virtual_disk::*;
 
 fn main() {
     // 是否从文件读取数据
-    let mut virtual_disk: DiskInfo = ui_load_dm_loop(FILE_NAME);
+    let mut virtual_disk: DiskInfo = select_load_file_system(FILE_NAME);
     ui_loop(&mut virtual_disk);
 }
 
 
+const PROMPT: &str = "\
+\n\t----------------------------------------------------------\
+\n\t                    rust_file_system\
+\n\t----------------------------------------------------------\
+\n\tCommands:\
+\n\t - cd <directory_name>: Change current directory.\
+\n\t - ls : List all files and directory in current directory.\
+\n\t - cat <filename>: Show the file content.\
+\n\t - mkdir <directory name>: Create a new directory.\
+\n\t - cp <filename>: copy a file in current directory.\
+\n\t - rm <filename>: Delete a file on disk.\
+\n\t - mv <filename>: move or rename a file on disk.\
+\n\t - save : Save this virtual disk to file 'file-sys.vd'\
+\n\t - diskinfo : Show some info about disk.\
+\n\t - exit : Exit the system.\
+\n\t - test create <file_name>: Create a random test file.\
+\n";
+
 const FILE_NAME: &str = "./file_system";
 
-const PROMPT: &str = "\
-\n==================================================\
-\n               rust_file_system\
-\n==================================================\
-\nHelp:\
-\n\tcd <dirname>: Change current dir.\
-\n\tmkdir <dir name>: Create a new dir.\
-\n\tls : List all files and dir in current dir.\
-\n\tcat <filename>: Show the file content.\
-\n\trm <filename>: Delete a file on disk.\
-\n\tdiskinfo : Show some info about disk.\
-\n\tsave : Save this virtual disk to file 'file-sys.vd'\
-\n\texit : Exit the system. 
-\n\
-\nTesting:\
-\n\ttest create: Create a random file to test.\
-\n\
-\nSystem Inner Function:\
-\n\tfn create_file_with_data(&mut self, name: &str, data: &[u8])\
-\n\tfn rename_file(&mut self, old: &str, new: &str)\
-\n\tfn delete_file_by_name(&mut self, name: &str)\
-\n\tfn read_file_by_name(&self, name: &str) -> Vec<u8>\
-\n"; // UI主菜单
-
-/// 使用交互式让用户选择是否从硬盘中加载DiskManager进行使用
-fn ui_load_dm_loop(filename: &str) -> DiskInfo {
+// 选择是否从文件加载虚拟文件系统
+fn select_load_file_system(filename: &str) -> DiskInfo {
     let mut buf_str: String = String::new();
     loop {
-        pinfo();
-        print!("Do you want to try to load file-sys.vd? [Y/N] ");
+        print_info();
+        print!("load file system from disk? [Y/N] ");
         stdout().flush().unwrap();
         stdin().read_line(&mut buf_str).unwrap();
         let first_char: char = buf_str.as_str().trim().chars().next().unwrap();
 
         match first_char {
-            'N' | 'n' => {
-                pinfo();
-                println!("Will not load vd file from disk.\n");
-
-                break DiskInfo::new(None);
-            }
             'Y' | 'y' => {
-                pinfo();
-                println!("Trying to load vd file from disk...\n");
+                print_info();
+                println!("load file system from disk\n");
                 let data: Vec<u8> = fs::read(filename).unwrap();
-
                 break bincode::deserialize(data.as_slice()).unwrap();
             }
+            'N' | 'n' => {
+                print_info();
+                println!("new virtual file system\n");
+                break DiskInfo::new(None);
+            }
             _ => {
-                println!("\nIncorrect input.");
+                println!("\nIncorrect command.");
                 continue;
             }
         };
@@ -83,62 +75,61 @@ fn ui_loop(virtual_disk: &mut DiskInfo) {
     let mut buf_str: String = String::new();
 
     loop {
-        // 清空buffer
-        buf_str.clear();
-        print!("> ");
+        buf_str.clear();    // 清空buffer
+        print!(">  ");
         stdout().flush().unwrap();
         stdin().read_line(&mut buf_str).unwrap();
         // 去除首尾空格
         let command_line: String = String::from(buf_str.trim());
 
-        // 分支-test
+        // 生成测试文件
         if let Some(cl) = command_line.strip_prefix("test ") {
-            // 分支-create
             if let Some(cl) = cl.strip_prefix("create") {
-                let data: String = format!("File has been created at {:?} .", SystemTime::now());
+                let data: String = format!("Generate test file at {:?} .", SystemTime::now());
                 let cl_trim: &str = cl.trim();
-                let name: String = if cl_trim.is_empty() {
-                    // 没有输入名字
-                    format!("test-{}", (rand::random::<f32>() * 100_f32) as usize)
-                } else {
-                    // 输入了名字
+                let name: String = if !cl_trim.is_empty() {
+                    // 自定义文件名
                     cl_trim.to_string()
+                } else {
+                    // 随机生成文件名
+                    format!("test_file_{}", (rand::random::<f32>() * 100_f32) as usize)
                 };
                 virtual_disk.create_file_with_data(name.as_str(), data.as_bytes());
             }
         } else if command_line.starts_with("help") {
             // 显示菜单
             println!("{}", PROMPT);
-        } else if command_line.starts_with("exit") {
-            // 跳出循环，结束程序
-            pinfo();
-            println!("Exiting system...\n");
-            break;
         } else if command_line.starts_with("save") {
             // 保存系统
-            pinfo();
-            println!("Saving...");
+            print_info();
+            println!("Saving virtual file system...");
             let data: Vec<u8> = bincode::serialize(&virtual_disk).unwrap();
             fs::write(FILE_NAME, data.as_slice()).unwrap();
-            pinfo();
-            println!("The virtual disk system has been saved.\n");
+            print_info();
+            println!("The virtual file system has been saved.\n");
+        } else if command_line.starts_with("exit") {
+            // 退出文件系统
+            print_info();
+            println!("Exiting file system...\n");
+            break;
         } else if command_line.starts_with("ls") {
             // 列出目录文件
             println!("{}", virtual_disk.cur_directory);
         } else if let Some(command_line) = command_line.strip_prefix("rm ") {
-            let name = command_line.trim();
-            virtual_disk
-                .delete_file_by_name(name)
-                .expect("[ERROR]\tDELETE FILE FAILED!");
-        } else if let Some(name) = command_line.strip_prefix("cd ") {
-            // 切换到当前目录的某个文件夹
-            pinfo();
-            println!("Set Location to: {} ...", name);
-            virtual_disk.change_current_directory(name);
+            let file_name: &str = command_line.trim();
+            virtual_disk.delete_file_by_name(file_name)
+                .expect("[ERROR]\tFile not found, please enter the correct file name!");
+        } else if let Some(dir_name) = command_line.strip_prefix("cd ") {
+            // 切换到当前目录的某个子目录
+            print_info();
+
+            println!("Change Current Directory to: {}", dir_name);
+            virtual_disk.change_current_directory(dir_name);
         } else if let Some(command_line) = command_line.strip_prefix("cat ") {
-            // 显示文件内容
-            let name: &str = command_line.trim();
-            let data: Vec<u8> = virtual_disk.read_file_by_name(name);
+            // 查看文件内容
+            let file_name: &str = command_line.trim();
+            let data: Vec<u8> = virtual_disk.read_file_by_name(file_name);
+
             println!("{}", str::from_utf8(data.as_slice()).unwrap());
         } else if let Some(command_line) = command_line.strip_prefix("cp ") {
             // 复制文件
@@ -148,20 +139,19 @@ fn ui_loop(virtual_disk: &mut DiskInfo) {
                 continue;
             }
             virtual_disk.copy_file_by_name(name[0], name[1]);
-        } else if let Some(command_line) = command_line.strip_prefix("mkdir ") {
-            // 创建新文件夹
-            let name = command_line.trim();
-            virtual_disk.new_directory_to_disk(name).unwrap();
         } else if command_line.starts_with("diskinfo") {
-            // 返回磁盘信息
-            let (disk_size, num_used, num_not_used) = virtual_disk.get_disk_info();
-            println!(
-                "Disk sized {} Bytes, {} Bytes used, {} Bytes available.",
-                disk_size,
-                num_used * BLOCK_SIZE,
-                num_not_used * BLOCK_SIZE
+            // 统计磁盘使用情况
+            let (total_size, already_used, unused) = virtual_disk.get_disk_info();
+            println!("total size: {} Bytes\nalready use: {} Bytes\navailable: {} Bytes",
+                    total_size,
+                    BLOCK_SIZE * already_used,
+                    BLOCK_SIZE * unused 
             );
-        } else if let Some(command_line) = command_line.strip_prefix("mv ") {
+        } else if let Some(command_line) = command_line.strip_prefix("mkdir ") {
+            // 创建新目录
+            let dir_name = command_line.trim();
+            virtual_disk.new_directory_to_disk(dir_name).unwrap();
+        }  else if let Some(command_line) = command_line.strip_prefix("mv ") {
             // 重命名/移动文件
             let name: Vec<&str> = command_line.trim().split(" ").collect();
             if name.len() != 2 {
@@ -176,7 +166,8 @@ fn ui_loop(virtual_disk: &mut DiskInfo) {
                 virtual_disk.rename_file_by_name(name[0], name[1]);
             }
         } else {
-            println!("Unknown Command.");
+            // 不支持的命令
+            println!("Unsupported command");
         }
     }
 }

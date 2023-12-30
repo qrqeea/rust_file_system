@@ -18,7 +18,7 @@ pub struct DiskInfo {
 impl DiskInfo {
     /// 初始化新磁盘，返回DiskManager对象。若输入None，则自动创建默认配置。
     pub fn new(root_dir: Option<Directory>) -> DiskInfo {
-        pinfo();
+        print_info();
         println!("Creating new disk...");
         // 生成虚拟磁盘
         let mut disk = VirtualDisk::new();
@@ -73,7 +73,7 @@ impl DiskInfo {
         &mut self,
         clusters_needed: usize,
     ) -> Result<Vec<usize>, &'static str> {
-        pinfo();
+        print_info();
         println!("Allocating new space...");
 
         let mut clusters: Vec<usize> = Vec::with_capacity(clusters_needed);
@@ -87,7 +87,7 @@ impl DiskInfo {
             let cur_cluster: usize = clusters[i];
 
             // 对磁盘写入数据
-            pdebug();
+            print_debug_info();
             println!("Found new empty cluster: {}", cur_cluster);
             if i != 0 {
                 // 从第二块开始，将上一块的FAT值修改为当前块
@@ -102,7 +102,7 @@ impl DiskInfo {
 
     // 获取以first_cluster为开头在FAT中所关联的所有文件块
     fn get_file_clusters(&self, first_cluster: usize) -> Result<Vec<usize>, String> {
-        pinfo();
+        print_info();
         println!("Searching file clusters...");
         let mut clusters: Vec<usize> = Vec::new();
         let mut cur_cluster: usize = first_cluster;
@@ -114,13 +114,13 @@ impl DiskInfo {
         loop {
             match self.virtual_disk.fat[cur_cluster] {
                 FatStatus::ClusterNo(cluster) => {
-                    pdebug();
+                    print_debug_info();
                     println!("Found next cluster: {}.", cluster);
                     clusters.push(cluster);
                     cur_cluster = cluster;
                 }
                 FatStatus::EOF => {
-                    pdebug();
+                    print_debug_info();
                     println!("Found EoF cluster: {}.", cur_cluster);
                     break Ok(clusters);
                 }
@@ -136,7 +136,7 @@ impl DiskInfo {
 
     /// 释放从first_cluster开始已经被分配的块
     fn delete_space_on_fat(&mut self, first_cluster: usize) -> Result<Vec<usize>, String> {
-        pinfo();
+        print_info();
         println!("Deleting Fat space...");
         let clusters_result: Result<Vec<usize>, String> = self.get_file_clusters(first_cluster);
         let clusters: Vec<usize> = clusters_result.clone().unwrap();
@@ -168,7 +168,7 @@ impl DiskInfo {
 
     // 写入的数据到硬盘，返回first_cluster
     pub fn write_data_to_disk(&mut self, data: &[u8]) -> usize {
-        pinfo();
+        print_info();
         println!("Writing data to disk...");
 
         let (insert_eof, clusters_needed) = DiskInfo::calc_clusters_needed_with_eof(data.len());
@@ -177,7 +177,7 @@ impl DiskInfo {
 
         self.virtual_disk.write_data_by_clusters_with_eof(data, clusters.as_slice(), insert_eof);
 
-        pdebug();
+        print_debug_info();
         println!("Writing finished. Returned clusters: {:?}", clusters);
 
         clusters[0]
@@ -186,9 +186,9 @@ impl DiskInfo {
     // 在当前目录中新建目录，并且写入磁盘
     pub fn new_directory_to_disk(&mut self, name: &str) -> Result<(), &'static str> {
         // 新文件夹写入磁盘块
-        pinfo();
+        print_info();
         println!("Creating dir: {}.", name);
-        pdebug();
+        print_debug_info();
         println!("Trying to write to disk...");
 
         if let Some(_fcb) = self.cur_directory.get_fcb_by_name(name) {
@@ -214,12 +214,12 @@ impl DiskInfo {
 
         let bin_dir: Vec<u8> = bincode::serialize(&new_directory).unwrap();
 
-        pdebug();
+        print_debug_info();
         println!("Dir bytes: {:?}", bin_dir);
         // 将新建的目录写入到硬盘
         let first_block: usize = self.write_data_to_disk(&bin_dir);
 
-        pdebug();
+        print_debug_info();
         println!("Trying to add dir to current dir...");
 
         // 在当前目录添加新目录
@@ -229,7 +229,7 @@ impl DiskInfo {
             first_cluster: first_block,
             length: 0,
         });
-        pdebug();
+        print_debug_info();
         println!("Created dir {}.", name);
 
         // 这里并没有立即更新当前目录到硬盘，而是等切换目录或退出时再保存
@@ -240,7 +240,7 @@ impl DiskInfo {
 
     // 根据首块块号，读出所有数据
     fn get_data_by_first_cluster(&self, first_cluster: usize) -> Vec<u8> {
-        pdebug();
+        print_debug_info();
         println!("Getting data from disk by clusters...");
 
         let clusters: Vec<usize> = self.get_file_clusters(first_cluster).unwrap();
@@ -248,7 +248,7 @@ impl DiskInfo {
             .virtual_disk
             .read_data_by_clusters_without_eof(clusters.as_slice());
 
-        pdebug();
+        print_debug_info();
         println!("Data read: {:?}", &data);
 
         data
@@ -256,15 +256,15 @@ impl DiskInfo {
 
     // 通过FCB块找到目录数据
     fn get_directory_by_fcb(&self, dir_fcb: &Fcb) -> Directory {
-        pinfo();
+        print_info();
         println!("Getting dir by FCB...\n\tFCB: {:?}", dir_fcb);
         match dir_fcb.file_type {
             FileType::Directory => {
                 let data_dir = self.get_data_by_first_cluster(dir_fcb.first_cluster);
-                pdebug();
+                print_debug_info();
                 println!("Trying to deserialize data read from disk...");
                 let dir: Directory = bincode::deserialize(data_dir.as_slice()).unwrap();
-                pdebug();
+                print_debug_info();
                 println!("Getting dir finished.");
                 dir
             }
@@ -274,7 +274,7 @@ impl DiskInfo {
 
     // 通过FCB块找到文件数据
     fn get_file_by_fcb(&self, fcb: &Fcb) -> Vec<u8> {
-        pinfo();
+        print_info();
         println!("Getting file data by FCB...\n\tFCB: {:?}", fcb);
         match fcb.file_type {
             FileType::File => self.get_data_by_first_cluster(fcb.first_cluster),
@@ -285,7 +285,7 @@ impl DiskInfo {
 
     // 在当前目录新建文件并写入数据
     pub fn create_file_with_data(&mut self, name: &str, data: &[u8]) {
-        pinfo();
+        print_info();
         println!("Creating new file in current dir...");
         // 写入数据
         let first_cluster = self.write_data_to_disk(data);
@@ -309,7 +309,7 @@ impl DiskInfo {
     pub fn delete_file_by_name(&mut self, name: &str) -> Result<(), String> {
         let index: usize = self.cur_directory.get_index_by_name(name).unwrap();
         // 从dir中先删除fcb，如果删除失败再还回来
-        pdebug();
+        print_debug_info();
         println!("Trying to delete file in dir file list...");
         let fcb: Fcb = self.cur_directory.files.remove(index);
         let res: Result<(), String> = self.delete_file_by_fcb_with_index(&fcb, None);
@@ -333,7 +333,7 @@ impl DiskInfo {
                 return Err(String::from("[ERROR]\tThe Directory is not empty!"));
             }
         }
-        pdebug();
+        print_debug_info();
         println!(
             "Trying to set all NotUsed clutster of file '{}' on FAT...",
             fcb.name
@@ -364,7 +364,7 @@ impl DiskInfo {
 
     // 保存当前目录数据到硬盘，返回第一个块号——更改被保存，原目录文件将在磁盘上被覆盖
     fn save_directory_to_disk(&mut self, dir: &Directory) -> usize {
-        pdebug();
+        print_debug_info();
         println!("Trying to saving dir...");
         let data = bincode::serialize(dir).unwrap();
         let (insert_eof, clusters_needed) = DiskInfo::calc_clusters_needed_with_eof(data.len());
@@ -538,10 +538,10 @@ impl fmt::Display for Directory {
     }
 }
 
-pub fn pdebug() {
+pub fn print_debug_info() {
     print!("{}", "[DEBUG]\t".fg(ansi_rgb::magenta()));
 }
 
-pub fn pinfo() {
+pub fn print_info() {
     print!("{}", "[INFO]\t".fg(ansi_rgb::cyan_blue()));
 }
