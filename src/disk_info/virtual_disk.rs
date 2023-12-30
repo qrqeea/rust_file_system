@@ -1,31 +1,42 @@
 use std::mem::size_of;
 use serde::{Deserialize, Serialize};
 
-pub const BLOCK_SIZE: usize = 1024 * 4;     // 块大小：4KB
-
 pub const BLOCK_COUNT: usize = 1000;        // 块数量
+pub const BLOCK_SIZE: usize = 1024 * 4;     // 块大小：4KB
 
 pub const EOF_BYTE: u8 = 255;
 
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum FatStatus {
+    UnUsed,           // 未使用的块
+    ClusterNo(usize), // 指向下一块号
+    EOF,              // 结束标志
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct VirtualDisk {
-    pub fat: Vec<FatItem>,
+    pub fat: Vec<FatStatus>,
     data: Vec<u8>,
 }
 
 impl VirtualDisk {
     pub fn new() -> VirtualDisk {
         VirtualDisk {
-            // 创建FAT文件分配表
-            fat: vec![FatItem::NotUsed; BLOCK_COUNT],
-            // 数据区，初始值为0，块大小为4KB.
-            // 每一个块都有一个对应的FAT项，所以真实的数据区域需要在总数中减去FAT项的数据大小
+            // FAT
+            fat: vec![FatStatus::UnUsed; BLOCK_COUNT],
+            // 数据区
             data: vec![
                 0u8;
-                (BLOCK_COUNT - size_of::<FatItem>() * BLOCK_COUNT / BLOCK_SIZE - 1)
+                (BLOCK_COUNT - size_of::<FatStatus>() * BLOCK_COUNT / BLOCK_SIZE - 1)
                     * BLOCK_SIZE
             ],
         }
+    }
+
+    // 向disk中的data插入数据。插入数据将覆写相应的位置。
+    pub fn insert_data_by_cluster(&mut self, data: &[u8], cluster: usize) {
+        self.insert_data_by_offset(data, cluster * BLOCK_SIZE);
     }
 
     // 向disk的data中插入数据。插入的数据将覆写相应位置的数据。
@@ -33,10 +44,7 @@ impl VirtualDisk {
         self.data
             .splice(offset..(offset + data.len()), data.iter().cloned());
     }
-    // 向disk中的data插入数据。插入数据将覆写相应的位置。
-    pub fn insert_data_by_cluster(&mut self, data: &[u8], cluster: usize) {
-        self.insert_data_by_offset(data, cluster * BLOCK_SIZE);
-    }
+
 
     // 向disk中的data插入数据。插入数据将覆写相应的位置。
     pub fn write_data_by_clusters_with_eof(
@@ -95,12 +103,4 @@ impl VirtualDisk {
         }
         data
     }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum FatItem {
-    NotUsed,          // 未使用的块
-    ClusterNo(usize), // 指向下一个的块号
-    BadCluster,       // 坏块
-    EoF,              // 文件结束
 }

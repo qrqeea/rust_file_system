@@ -5,7 +5,7 @@ use core::panic;
 use ansi_rgb::Foreground;
 use serde::{Deserialize, Serialize};
 use std::{fmt, vec::Vec, string::String, usize};
-use virtual_disk::{FatItem, VirtualDisk, BLOCK_SIZE, BLOCK_COUNT};
+use virtual_disk::{FatStatus, VirtualDisk, BLOCK_SIZE, BLOCK_COUNT};
 
 
 #[derive(Serialize, Deserialize)]
@@ -27,7 +27,7 @@ impl DiskInfo {
             let dir_data: Vec<u8> = bincode::serialize(&root_dir).unwrap();
             disk.insert_data_by_offset(dir_data.as_slice(), 0);
         }
-        disk.fat[0] = FatItem::EoF;
+        disk.fat[0] = FatStatus::EOF;
 
         DiskInfo {
             virtual_disk: disk,
@@ -60,7 +60,7 @@ impl DiskInfo {
     pub fn find_next_empty_fat(&self) -> Option<usize> {
         let mut res: Option<usize> = None;
         for i in 0..(self.virtual_disk.fat.len() - 1) {
-            if let FatItem::NotUsed = self.virtual_disk.fat[i] {
+            if let FatStatus::UnUsed = self.virtual_disk.fat[i] {
                 res = Some(i);
                 break;
             }
@@ -91,50 +91,40 @@ impl DiskInfo {
             println!("Found new empty cluster: {}", cur_cluster);
             if i != 0 {
                 // 从第二块开始，将上一块的FAT值修改为当前块
-                self.virtual_disk.fat[clusters[i - 1]] = FatItem::ClusterNo(cur_cluster);
+                self.virtual_disk.fat[clusters[i - 1]] = FatStatus::ClusterNo(cur_cluster);
             }
             // 每次都将当前块作为最后一块，防止出现没有空闲块提前退出的情况
-            self.virtual_disk.fat[cur_cluster] = FatItem::EoF;
+            self.virtual_disk.fat[cur_cluster] = FatStatus::EOF;
         }
 
         Ok(clusters)
     }
 
-    // 查找以`first_cluster`为开头的在FAT中所关联的所有文件块。
-    //
-    // # 错误
-    //
-    // 当检测到块指向一个未使用的块的时候，返回那个被指向的未使用的块的索引。
-
+    // 获取以first_cluster为开头在FAT中所关联的所有文件块
     fn get_file_clusters(&self, first_cluster: usize) -> Result<Vec<usize>, String> {
         pinfo();
         println!("Searching file clusters...");
         let mut clusters: Vec<usize> = Vec::new();
         let mut cur_cluster: usize = first_cluster;
 
-        // 第一个块
+        // 第一块
         clusters.push(first_cluster);
 
-        // 然后循环读出之后所有块
+        // 循环读出之后所有块
         loop {
             match self.virtual_disk.fat[cur_cluster] {
-                FatItem::ClusterNo(cluster) => {
+                FatStatus::ClusterNo(cluster) => {
                     pdebug();
                     println!("Found next cluster: {}.", cluster);
                     clusters.push(cluster);
                     cur_cluster = cluster;
                 }
-                FatItem::EoF => {
+                FatStatus::EOF => {
                     pdebug();
                     println!("Found EoF cluster: {}.", cur_cluster);
                     break Ok(clusters);
                 }
-                FatItem::BadCluster => {
-                    // 跳过坏块
-                    cur_cluster += 1;
-                    continue;
-                }
-                _ => {
+                FatStatus::UnUsed => {
                     break Err(format!(
                         "[ERROR]\tBad cluster detected at {}!",
                         cur_cluster
@@ -151,7 +141,7 @@ impl DiskInfo {
         let clusters_result: Result<Vec<usize>, String> = self.get_file_clusters(first_cluster);
         let clusters: Vec<usize> = clusters_result.clone().unwrap();
         for cluster in clusters {
-            self.virtual_disk.fat[cluster] = FatItem::NotUsed;
+            self.virtual_disk.fat[cluster] = FatStatus::UnUsed;
         }
 
         clusters_result
@@ -441,10 +431,9 @@ impl DiskInfo {
 
         for fat_item in &self.virtual_disk.fat {
             match fat_item {
-                FatItem::ClusterNo(_no) => num_used += 1,
-                FatItem::EoF => num_used += 1,
-                FatItem::NotUsed => num_not_used += 1,
-                _ => (),
+                FatStatus::ClusterNo(_no) => num_used += 1,
+                FatStatus::EOF => num_used += 1,
+                FatStatus::UnUsed => num_not_used += 1,
             }
         }
 
