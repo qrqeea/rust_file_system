@@ -66,6 +66,35 @@ pub struct Directory {
     files: Vec<Fcb>,    // 目录项是文件控制块
 }
 ```
+## 功能实现说明
+* `cd`
+** 程序持有一个Directory类型的对象用于表示当前目录，切换目录时从磁盘读取新目录的数据更新Directory对象
+* `touch`
+** 在磁盘数据区分配block用于存储文件数据，然后更新FAT并记录首块块号
+** 创建一个Fcb对象保存文件属性，其中包括首块块号，然后在表示当前目录的Directory中加入该Fcb对象
+* `ls`
+** Directory对象的files属性存储当前目录下的所有文件属性
+* `cat`
+** 在Directory对象的files中查找该文件的FCB获得首块块号，然后通过FAT表可以获取存储该文件的所有块，从数据区读取数据即可
+* `mkdir`
+** 创建一个Directory对象，files包括父目录和自身
+** 在磁盘数据区分配block用于存储Directory对象，然后更新FAT并记录首块块号
+** 创建一个Fcb对象记录目录属性，其中包括首块块号，然后在表示当前目录的Directory中加入该Fcb对象
+* `cp`
+** 读取文件数据（同cat）拷贝一份数据
+** 用拷贝的数据创建新文件（同touch）
+* `rename`
+** 在Directory对象的files中查找该文件的FCB
+** 修改FCB中的文件名
+* `rm`
+** 删除文件数据：在Directory对象的files中查找该文件的FCB获得首块块号，然后修改FAT表释放分配的数据块，无需修改数据区
+** 删除文件属性：在Directory对象的files中查找该文件的FCB然后删除
+* `mv`
+** 在当前目录对应的Directory对象的files中查找该文件的FCB，从当前目录移除
+** 在新目录对应的Directory对象的files中添加该文件对应的FCB
+** 无需修改文件数据部分
+* `diskinfo`
+** 用虚拟磁盘的FAT属性统计即可
 
 ## 局限
 * 仅支持最基本的文件存储功能
