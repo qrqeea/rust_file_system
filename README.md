@@ -1,5 +1,6 @@
 # rust_file_system
 使用Rust语言写的一个虚拟文件系统
+github地址：https://github.com/qrqeea/rust_file_system
 
 ## 使用说明
 使用命令行交互界面，支持以下命令：
